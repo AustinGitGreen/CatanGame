@@ -50,7 +50,7 @@ public class GameSetup {
         // Placeholder for selecting tile for settlement
         HexTile settlementTile = selectTileForSettlement(board);
         if (settlementTile != null) {
-            player.buildSettlement();
+            player.buildSettlement(settlementTile);
             System.out.println("Player placed settlement on " + settlementTile.getResourceType() + " tile.");
 
             // Assign initial resources if it's the second settlement in the setup phase

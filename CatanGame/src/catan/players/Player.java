@@ -1,13 +1,21 @@
 package catan.players;
 
+import catan.board.HexTile;
+import catan.resources.DevelopmentCardType;
 import catan.resources.Resource;
+
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 public class Player {
+    private static int playerCount = 0; // Static variable to assign unique IDs to players
+    private final String id; // Unique identifier for each player
+
     private Map<Resource, Integer> resources;
-    private int settlements;
+    private Set<HexTile> settlements;  // Tracks the tiles where the player has settlements
     private int cities;
     private int roads;
     private int victoryPoints;
@@ -16,13 +24,18 @@ public class Player {
     private boolean hasLongestRoad;
     private boolean hasLargestArmy;
     private Random random; // Used for random resource selection
+    private Map<DevelopmentCardType, Integer> developmentCards; // Tracks development cards
 
     public Player() {
+        // Increment player count and set the unique ID
+        playerCount++;
+        this.id = "Player " + playerCount; 
+
         resources = new HashMap<>();
         for (Resource resource : Resource.values()) {
             resources.put(resource, 0);
         }
-        settlements = 0;
+        settlements = new HashSet<>();
         cities = 0;
         roads = 0;
         victoryPoints = 0;
@@ -31,6 +44,21 @@ public class Player {
         hasLongestRoad = false;
         hasLargestArmy = false;
         random = new Random();
+        developmentCards = new HashMap<>();
+        for (DevelopmentCardType cardType : DevelopmentCardType.values()) {
+            developmentCards.put(cardType, 0); // Initialize each card type with 0 count
+        }
+    }
+
+    // Getter for the player's unique ID
+    public String getId() {
+        return id;
+    }
+
+    // Override toString to return the player's unique ID
+    @Override
+    public String toString() {
+        return id;
     }
 
     // Resource management methods
@@ -52,13 +80,13 @@ public class Player {
                hasResource(Resource.SHEEP, 1) && hasResource(Resource.WHEAT, 1);
     }
 
-    public void buildSettlement() {
+    public void buildSettlement(HexTile tile) {
         if (canBuildSettlement()) {
             removeResource(Resource.WOOD, 1);
             removeResource(Resource.BRICK, 1);
             removeResource(Resource.SHEEP, 1);
             removeResource(Resource.WHEAT, 1);
-            settlements++;
+            settlements.add(tile); // Add the tile where the settlement is built
             victoryPoints++;
         }
     }
@@ -68,10 +96,9 @@ public class Player {
     }
 
     public void buildCity() {
-        if (canBuildCity() && settlements > 0) {
+        if (canBuildCity() && !settlements.isEmpty()) {
             removeResource(Resource.WHEAT, 2);
             removeResource(Resource.ORE, 3);
-            settlements--;
             cities++;
             victoryPoints++; // Cities add an additional point on top of the one from settlements
         }
@@ -189,9 +216,19 @@ public class Player {
         }
     }
 
+    // Settlement tracking methods
+    public boolean hasSettlementOnTile(HexTile tile) {
+        return settlements.contains(tile);
+    }
+
+    public void addSettlement(HexTile tile) {
+        settlements.add(tile);
+        tile.addSettlement(this); // Also add the settlement to the tile
+    }
+
     // Getters for building counts
     public int getSettlements() {
-        return settlements;
+        return settlements.size();
     }
 
     public int getCities() {
@@ -200,5 +237,31 @@ public class Player {
 
     public int getRoads() {
         return roads;
+    }
+
+    // Development card methods
+
+    public boolean hasDevelopmentCard(DevelopmentCardType cardType) {
+        return developmentCards.getOrDefault(cardType, 0) > 0;
+    }
+
+    public void useDevelopmentCard(DevelopmentCardType cardType) {
+        int count = developmentCards.getOrDefault(cardType, 0);
+        if (count > 0) {
+            developmentCards.put(cardType, count - 1);
+            System.out.println("Used " + cardType + " card.");
+        } else {
+            System.out.println("No " + cardType + " card available to use.");
+        }
+    }
+
+    public void addDevelopmentCard(DevelopmentCardType cardType) {
+        developmentCards.put(cardType, developmentCards.getOrDefault(cardType, 0) + 1);
+        System.out.println("Added " + cardType + " card.");
+    }
+
+    // Retrieves the count of a specified resource for Monopoly
+    public int getResource(Resource resource) {
+        return resources.getOrDefault(resource, 0);
     }
 }
