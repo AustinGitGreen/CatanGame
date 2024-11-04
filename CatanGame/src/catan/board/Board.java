@@ -1,5 +1,6 @@
 package catan.board;
 
+import catan.resources.Resource;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -13,6 +14,7 @@ public class Board {
     public Board() {
         hexTiles = new ArrayList<>();
         numberTokens = new ArrayList<>();
+        ports = new ArrayList<>();
         initializeNumberTokens();
         initializeBoard();
     }
@@ -29,19 +31,24 @@ public class Board {
     // Initializes the board with resource types and assigns number tokens
     private void initializeBoard() {
         // Define the resource tiles: 3 wood, 3 brick, 4 sheep, 4 wheat, 3 ore, 1 desert
-        addResourceTiles("wood", 3);
-        addResourceTiles("brick", 3);
-        addResourceTiles("sheep", 4);
-        addResourceTiles("wheat", 4);
-        addResourceTiles("ore", 3);
+        addResourceTiles(Resource.WOOD, 4);
+        addResourceTiles(Resource.BRICK, 3);
+        addResourceTiles(Resource.SHEEP, 4);
+        addResourceTiles(Resource.WHEAT, 4);
+        addResourceTiles(Resource.ORE, 3);
         
         // Add the desert tile with no number token
-        desertTile = new HexTile("desert", 0);
+        desertTile = new HexTile(Resource.DESERT, 0);
         hexTiles.add(desertTile);
+        
+        // Verify tile count (should be 19)
+        if (hexTiles.size() != 19) {
+            System.err.println("Error: Expected 19 tiles, but found " + hexTiles.size());
+        }
 
         // Assign number tokens to each tile (excluding the desert)
         for (HexTile tile : hexTiles) {
-            if (!tile.getResourceType().equals("desert") && !numberTokens.isEmpty()) {
+            if (tile.getResourceType() != Resource.DESERT && !numberTokens.isEmpty()) {
                 tile.setNumberToken(numberTokens.remove(0));
             }
         }
@@ -51,7 +58,7 @@ public class Board {
     }
 
     // Helper method to add resource tiles of a specific type and count
-    private void addResourceTiles(String resourceType, int count) {
+    private void addResourceTiles(Resource resourceType, int count) {
         for (int i = 0; i < count; i++) {
             hexTiles.add(new HexTile(resourceType, 0)); // Number tokens assigned later
         }
@@ -73,11 +80,11 @@ public class Board {
         return ports;
     }
 
-    // Optional: Method to retrieve a tile by resource type, useful for testing
-    public List<HexTile> getTilesByResource(String resourceType) {
+    // Optional: Method to retrieve tiles by resource type, useful for testing
+    public List<HexTile> getTilesByResource(Resource resourceType) {
         List<HexTile> result = new ArrayList<>();
         for (HexTile tile : hexTiles) {
-            if (tile.getResourceType().equals(resourceType)) {
+            if (tile.getResourceType() == resourceType) {
                 result.add(tile);
             }
         }

@@ -55,16 +55,20 @@ public class TurnManager {
     // Distributes resources to players based on the dice roll
     private void distributeResources(int diceRoll) {
         for (HexTile tile : board.getHexTiles()) {
+            // Check if the tile number matches the dice roll, is not a desert, and does not have the robber
             if (tile.getNumberToken() == diceRoll && !tile.isDesert() && tile != robber.getCurrentTile()) {
                 for (Player player : players) {
                     if (playerHasSettlementOnTile(player, tile)) { // Assuming such a method exists
-                        player.addResource(Resource.valueOf(tile.getResourceType().toUpperCase()), 1);
-                        System.out.println("Player " + players.indexOf(player) + " receives 1 " + tile.getResourceType());
+                        // Use the resource directly from the tile without conversion
+                        Resource resource = tile.getResourceType();
+                        player.addResource(resource, 1);
+                        System.out.println("Player " + players.indexOf(player) + " receives 1 " + resource);
                     }
                 }
             }
         }
     }
+
 
     // Handles triggering the robber when a 7 is rolled
     private void triggerRobber(Player currentPlayer) {

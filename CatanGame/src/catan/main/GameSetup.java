@@ -77,13 +77,13 @@ public class GameSetup {
     }
 
     private void distributeInitialResources(Player player, HexTile tile) {
-        String resourceType = tile.getResourceType();
-        try {
-            Resource resource = Resource.valueOf(resourceType.toUpperCase());
+        Resource resource = tile.getResourceType();
+        if (resource != Resource.DESERT) { // Only distribute resources for non-desert tiles
             player.addResource(resource, 1);
-            System.out.println("Player receives 1 " + resourceType + " from initial settlement placement.");
-        } catch (IllegalArgumentException e) {
-            System.out.println("Invalid resource type for initial settlement placement.");
+            System.out.println("Player receives 1 " + resource + " from initial settlement placement.");
+        } else {
+            System.out.println("No resources distributed for desert tile.");
         }
     }
+
 }

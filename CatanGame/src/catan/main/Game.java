@@ -89,10 +89,12 @@ public class Game {
     // Distributes resources based on dice roll, except if the robber is on a tile
     private void distributeResources(int diceRoll) {
         for (HexTile tile : board.getHexTiles()) {
+            // Check if tile number matches the dice roll, is not a desert, and does not have the robber
             if (tile.getNumberToken() == diceRoll && !tile.isDesert() && tile != robber.getCurrentTile()) {
                 for (Player player : players) {
                     if (player.hasSettlementOnTile(tile)) {
-                        Resource resource = Resource.valueOf(tile.getResourceType().toUpperCase());
+                        // Directly use tile's resourceType as it is already of type Resource
+                        Resource resource = tile.getResourceType();
                         player.addResource(resource, 1);
                         System.out.println(player + " receives 1 " + resource);
                     }
