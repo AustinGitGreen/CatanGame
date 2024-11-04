@@ -7,6 +7,7 @@ import java.util.List;
 public class Board {
     private List<HexTile> hexTiles;
     private HexTile desertTile;
+    private List<Port> ports;
     private List<Integer> numberTokens; // Tokens (2-12 excluding 7) to be assigned to tiles
 
     public Board() {
@@ -62,6 +63,14 @@ public class Board {
 
     public HexTile getDesertTile() {
         return desertTile;
+    }
+    
+    public void setPorts(List<Port> ports) {
+        this.ports = ports;
+    }
+
+    public List<Port> getPorts() {
+        return ports;
     }
 
     // Optional: Method to retrieve a tile by resource type, useful for testing
