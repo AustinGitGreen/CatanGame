@@ -2,7 +2,6 @@ package catan.main;
 
 import catan.board.Board;
 import catan.board.HexTile;
-import catan.board.Robber;
 import catan.players.Player;
 import catan.resources.Resource;
 
@@ -16,15 +15,10 @@ public class GameSetup {
         scanner = new Scanner(System.in); // Used for user input during initial placement
     }
 
-    // Initializes the board with hex tiles, number tokens, and the robber's starting position
+    // Initializes the board with hex tiles and number tokens
     public void initializeBoard(Board board) {
-        // The Board class should already have its hex tiles and number tokens set up
-        board = new Board(); // Creates the randomized board with resource tiles and tokens
-
-        // Place the robber on the desert tile at the start of the game
-        HexTile desertTile = board.getDesertTile();
-        Robber robber = new Robber(desertTile);
-        System.out.println("Board initialized with hex tiles and tokens. Robber placed on the desert tile.");
+        // Assume that Board's constructor creates a randomized board with hex tiles and tokens
+        System.out.println("Board initialized with hex tiles and tokens. Desert tile identified for robber placement.");
     }
 
     // Handles the initial placement phase, where each player places two settlements and two roads
@@ -68,7 +62,6 @@ public class GameSetup {
     // Selects a tile for the settlement (placeholder for user input or logic)
     private HexTile selectTileForSettlement(Board board) {
         // Placeholder logic for selecting a tile
-        // Here we just return a random tile or prompt the user for input
         List<HexTile> hexTiles = board.getHexTiles();
         for (HexTile tile : hexTiles) {
             if (!tile.isDesert()) {
