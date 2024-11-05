@@ -101,7 +101,8 @@ public class RoadManagerTest {
         // Add roads for player2
         road6.setConnectedRoad1(new Road(player2)); // Additional connected road for player2
         roadManager.addRoad(player2, road6);
-
+        
+        //TODO fix road problem
         int longestRoadPlayer1 = roadManager.calculateLongestRoad(player1);
         int longestRoadPlayer2 = roadManager.calculateLongestRoad(player2);
 
