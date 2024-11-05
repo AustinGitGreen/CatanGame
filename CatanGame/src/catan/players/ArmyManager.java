@@ -5,7 +5,7 @@ import catan.board.Robber;
 
 public class ArmyManager {
     private Player largestArmyHolder;
-    private int largestArmySize = 3; // Minimum number of knights to hold the largest army
+    private int largestArmySize = 2; // Minimum number of knights to hold the largest army
 
     // Method to play a knight and move the robber
     public void playKnight(Player player, Robber robber, HexTile newLocation) {

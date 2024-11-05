@@ -14,21 +14,24 @@ public class RoadManager {
 
     // Adds a road to the player's collection and updates the owner
     public void addRoad(Player player, Road road) {
-        roads.add(road);
-        road.setOwner(player);
+        if (player.canBuildRoad()) {
+            roads.add(road);
+            road.setOwner(player);
+            player.buildRoad(); // Deducts resources and increments road count
+        } else {
+            System.out.println("Player does not have enough resources to build a road.");
+        }
     }
 
-    // Method to calculate the longest road for a player
+ // Method to calculate the longest road for a player
     public int calculateLongestRoad(Player player) {
         int longestRoad = 0;
-        
-        // Track roads visited in each DFS to avoid cycles
-        Set<Road> visitedRoads = new HashSet<>();
-        
+
         // Check each road owned by the player as a starting point
         for (Road road : roads) {
-            if (road.getOwner() == player && !visitedRoads.contains(road)) {
-                // Perform DFS to find the longest path from this road
+            if (road.getOwner() == player) {
+                // Use a new visited set for each DFS call
+                Set<Road> visitedRoads = new HashSet<>();
                 int roadLength = dfsRoadLength(road, player, visitedRoads, null);
                 longestRoad = Math.max(longestRoad, roadLength);
             }
@@ -53,12 +56,12 @@ public class RoadManager {
 
         // Traverse connected roads if they belong to the same player and are not visited
         if (road.getConnectedRoad1() != null && road.getConnectedRoad1() != previousRoad &&
-            road.getConnectedRoad1().getOwner() == player) {
+            road.getConnectedRoad1().getOwner() == player && !visited.contains(road.getConnectedRoad1())) {
             length = Math.max(length, 1 + dfsRoadLength(road.getConnectedRoad1(), player, visited, road));
         }
-        
+
         if (road.getConnectedRoad2() != null && road.getConnectedRoad2() != previousRoad &&
-            road.getConnectedRoad2().getOwner() == player) {
+            road.getConnectedRoad2().getOwner() == player && !visited.contains(road.getConnectedRoad2())) {
             length = Math.max(length, 1 + dfsRoadLength(road.getConnectedRoad2(), player, visited, road));
         }
 
