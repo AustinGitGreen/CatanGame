@@ -264,4 +264,15 @@ public class Player {
     public int getResource(Resource resource) {
         return resources.getOrDefault(resource, 0);
     }
+    
+    public String getResourceSummary() {
+        StringBuilder summary = new StringBuilder();
+        for (Map.Entry<Resource, Integer> entry : resources.entrySet()) {
+            summary.append(entry.getKey()).append(": ").append(entry.getValue()).append(", ");
+        }
+        if (summary.length() > 2) {
+            summary.setLength(summary.length() - 2); // Remove trailing comma and space
+        }
+        return summary.toString();
+    }
 }

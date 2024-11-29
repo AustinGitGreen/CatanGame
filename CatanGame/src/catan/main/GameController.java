@@ -48,6 +48,7 @@ public class GameController {
             System.out.println("4. Trade");
             System.out.println("5. Play Development Card");
             System.out.println("6. End Turn");
+            System.out.println("7. View Game Summary");
             System.out.print("Enter action number: ");
             
             int action = scanner.nextInt();
@@ -74,6 +75,9 @@ public class GameController {
                 case 6:
                     turnActive = false;
                     System.out.println("Ending turn...");
+                    break;
+                case 7:
+                    printGameSummary();
                     break;
                 default:
                     System.out.println("Invalid action. Please select a valid option.");
@@ -183,6 +187,19 @@ public class GameController {
             System.out.println("Played " + cardType + " card.");
         } else {
             System.out.println("Failed to play " + cardType + ". Check if you own the card.");
+        }
+    }
+    
+    private void printGameSummary() {
+        System.out.println("===== Game Summary =====");
+        for (Player player : game.getPlayers()) {
+            System.out.println("Player " + player.getId() + ":");
+            System.out.println("  - Resources: " + player.getResourceSummary());
+            System.out.println("  - Settlements: " + player.getSettlements());
+            System.out.println("  - Cities: " + player.getCities());
+            System.out.println("  - Roads: " + player.getRoads());
+            System.out.println("  - Victory Points: " + player.getVictoryPoints());
+            System.out.println();
         }
     }
 }
