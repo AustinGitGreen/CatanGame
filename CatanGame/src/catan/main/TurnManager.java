@@ -101,7 +101,7 @@ public class TurnManager {
     }
 
     // Selects a tile for the robber to move to (placeholder for actual implementation)
-    private HexTile selectTileForRobber() {
+    public HexTile selectTileForRobber() {
         // Logic for selecting tile, typically chosen by the current player
         // Placeholder: Just return the first non-desert tile
         for (HexTile tile : board.getHexTiles()) {
@@ -129,4 +129,9 @@ public class TurnManager {
         // Implement based on how settlements are tracked on tiles
         return false; // Placeholder
     }
+    
+    public Player getCurrentPlayer() {
+        return players.get(currentPlayerIndex);
+    }
+
 }

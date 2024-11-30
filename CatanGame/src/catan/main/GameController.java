@@ -1,5 +1,6 @@
 package catan.main;
 
+import catan.board.Board;
 import catan.board.HexTile;
 import catan.players.Player;
 import catan.resources.DevelopmentCardType;
@@ -34,6 +35,15 @@ public class GameController {
                 break;
             }
         }
+    }
+    
+    public Game getGame() {
+        return game;
+    }
+    
+ // Add this method
+    public Board getBoard() {
+        return game.getBoard(); // Assuming the Game class has a getBoard() method
     }
 
     private void handlePlayerActions() {
@@ -88,7 +98,7 @@ public class GameController {
 
     // Methods for each action
 
-    private void buildSettlement(Player player) {
+    public void buildSettlement(Player player) {
         if (player.canBuildSettlement()) {
             // Assuming `selectTileForSettlement` method is available in Game
             HexTile tile = game.selectTileForSettlement(player);
@@ -103,7 +113,7 @@ public class GameController {
         }
     }
 
-    private void buildCity(Player player) {
+    public void buildCity(Player player) {
         if (player.canBuildCity()) {
             player.buildCity();
             System.out.println("City built! Player " + player.getId() + " now has " + player.getVictoryPoints() + " victory points.");
@@ -112,7 +122,7 @@ public class GameController {
         }
     }
 
-    private void buildRoad(Player player) {
+    public void buildRoad(Player player) {
         if (player.canBuildRoad()) {
             // Assuming `selectLocationForRoad` method exists in Game
             player.buildRoad();
@@ -190,7 +200,7 @@ public class GameController {
         }
     }
     
-    private void printGameSummary() {
+    public void printGameSummary() {
         System.out.println("===== Game Summary =====");
         for (Player player : game.getPlayers()) {
             System.out.println("Player " + player.getId() + ":");

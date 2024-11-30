@@ -55,6 +55,10 @@ public class Game {
         }
         return false;
     }
+    
+    public Board getBoard() {
+        return board;
+    }
 
     // Starts a player's turn
     public void startTurn() {
