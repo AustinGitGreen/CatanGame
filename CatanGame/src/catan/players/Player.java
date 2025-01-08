@@ -4,39 +4,36 @@ import catan.board.HexTile;
 import catan.resources.DevelopmentCardType;
 import catan.resources.Resource;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Player {
     private static int playerCount = 0; // Static variable to assign unique IDs to players
     private final String id; // Unique identifier for each player
 
-    private Map<Resource, Integer> resources;
-    private Set<HexTile> settlements;  // Tracks the tiles where the player has settlements
-    private int cities;
-    private int roads;
-    private int victoryPoints;
-    private int knights; // Tracks the number of knights played
-    private int victoryCardsCount; // Tracks the number of victory point cards
-    private boolean hasLongestRoad;
-    private boolean hasLargestArmy;
-    private Random random; // Used for random resource selection
+    private Map<Resource, Integer> resources; // Tracks the resources owned by the player
+    private Map<HexTile, Integer> settlements; // Tracks tiles with settlements and their intersection indexes
+    private Map<HexTile, Integer> cities;      // Tracks tiles with cities and their intersection indexes
+    private int roads;                         // Number of roads owned by the player
+    private int victoryPoints;                 // Tracks the player's victory points
+    private int knights;                       // Tracks the number of knights played
+    private int victoryCardsCount;             // Tracks the number of victory point cards
+    private boolean hasLongestRoad;            // Tracks whether the player has the longest road
+    private boolean hasLargestArmy;            // Tracks whether the player has the largest army
+    private Random random;                     // Used for random resource selection
     private Map<DevelopmentCardType, Integer> developmentCards; // Tracks development cards
 
     public Player() {
-        // Increment player count and set the unique ID
+        // Increment player count and assign a unique ID
         playerCount++;
-        this.id = "Player " + playerCount; 
+        this.id = "Player " + playerCount;
 
         resources = new HashMap<>();
         for (Resource resource : Resource.values()) {
             resources.put(resource, 0);
         }
-        settlements = new HashSet<>();
-        cities = 0;
+        settlements = new HashMap<>();
+        cities = new HashMap<>();
         roads = 0;
         victoryPoints = 0;
         knights = 0;
@@ -46,22 +43,22 @@ public class Player {
         random = new Random();
         developmentCards = new HashMap<>();
         for (DevelopmentCardType cardType : DevelopmentCardType.values()) {
-            developmentCards.put(cardType, 0); // Initialize each card type with 0 count
+            developmentCards.put(cardType, 0);
         }
     }
 
-    // Getter for the player's unique ID
+    // Basic Info and Overrides
     public String getId() {
         return id;
     }
 
-    // Override toString to return the player's unique ID
     @Override
     public String toString() {
-        return id;
+        return id + " [VP: " + victoryPoints + ", Roads: " + roads + ", Settlements: " + settlements.size()
+                + ", Cities: " + cities.size() + "]";
     }
 
-    // Resource management methods
+    // Resource Management
     public void addResource(Resource resource, int amount) {
         resources.put(resource, resources.get(resource) + amount);
     }
@@ -74,71 +71,18 @@ public class Player {
         return resources.getOrDefault(resource, 0) >= amount;
     }
 
-    // Methods for building structures
-    public boolean canBuildSettlement() {
-        return hasResource(Resource.WOOD, 1) && hasResource(Resource.BRICK, 1) &&
-               hasResource(Resource.SHEEP, 1) && hasResource(Resource.WHEAT, 1);
+    public int getResource(Resource resource) {
+        return resources.getOrDefault(resource, 0);
     }
 
-    public void buildSettlement(HexTile tile) {
-        if (canBuildSettlement()) {
-            removeResource(Resource.WOOD, 1);
-            removeResource(Resource.BRICK, 1);
-            removeResource(Resource.SHEEP, 1);
-            removeResource(Resource.WHEAT, 1);
-            settlements.add(tile); // Add the tile where the settlement is built
-            victoryPoints++;
-        }
-    }
-
-    public boolean canBuildCity() {
-        return hasResource(Resource.WHEAT, 2) && hasResource(Resource.ORE, 3);
-    }
-
-    public void buildCity() {
-        if (canBuildCity() && !settlements.isEmpty()) {
-            removeResource(Resource.WHEAT, 2);
-            removeResource(Resource.ORE, 3);
-            cities++;
-            victoryPoints++; // Cities add an additional point on top of the one from settlements
-        }
-    }
-
-    public boolean canBuildRoad() {
-        return hasResource(Resource.WOOD, 1) && hasResource(Resource.BRICK, 1);
-    }
-
-    public void buildRoad() {
-        if (canBuildRoad()) {
-            removeResource(Resource.WOOD, 1);
-            removeResource(Resource.BRICK, 1);
-            roads++;
-        }
-    }
-
-    // Victory point management
-    public void incrementVictoryPoints() {
-        victoryPoints++;
-    }
-
-    public int getVictoryPoints() {
-        return victoryPoints;
-    }
-
-    // Resource counting and discarding methods
     public int getTotalResources() {
-        int total = 0;
-        for (int count : resources.values()) {
-            total += count;
-        }
-        return total;
+        return resources.values().stream().mapToInt(Integer::intValue).sum();
     }
 
     public void discardHalfResources() {
         int totalResources = getTotalResources();
         int resourcesToDiscard = totalResources / 2;
 
-        // Continue discarding resources until the required amount is discarded
         while (resourcesToDiscard > 0) {
             Resource randomResource = getRandomResourceWithAmount();
             if (randomResource != null) {
@@ -150,6 +94,18 @@ public class Player {
         }
     }
 
+    private Resource getRandomResourceWithAmount() {
+        List<Resource> availableResources = resources.keySet().stream()
+                .filter(resource -> resources.get(resource) > 0)
+                .collect(Collectors.toList());
+
+        if (availableResources.isEmpty()) {
+            return null;
+        }
+
+        return availableResources.get(random.nextInt(availableResources.size()));
+    }
+
     public Resource stealRandomResource() {
         Resource randomResource = getRandomResourceWithAmount();
         if (randomResource != null) {
@@ -159,41 +115,112 @@ public class Player {
         return null;
     }
 
-    // Helper method for random resource selection with at least 1 unit
-    private Resource getRandomResourceWithAmount() {
-        Resource[] resourceArray = resources.keySet().toArray(new Resource[0]);
-        Resource randomResource = null;
-        int attempts = 0;
-
-        while (attempts < 10) {
-            randomResource = resourceArray[random.nextInt(resourceArray.length)];
-            if (resources.get(randomResource) > 0) {
-                return randomResource;
-            }
-            attempts++;
+    public String getResourceSummary() {
+        StringBuilder summary = new StringBuilder();
+        for (Map.Entry<Resource, Integer> entry : resources.entrySet()) {
+            summary.append(entry.getKey()).append(": ").append(entry.getValue()).append(", ");
         }
-        return null;
+        if (summary.length() > 2) {
+            summary.setLength(summary.length() - 2); // Remove trailing comma and space
+        }
+        return summary.toString();
     }
 
-    // Knight and development card tracking
-    public void incrementKnights() {
-        knights++;
+    // Settlement and City Management
+    public boolean canBuildSettlement() {
+        return hasResource(Resource.WOOD, 1) &&
+               hasResource(Resource.BRICK, 1) &&
+               hasResource(Resource.SHEEP, 1) &&
+               hasResource(Resource.WHEAT, 1);
     }
 
-    public int getKnights() {
-        return knights;
+    public void buildSettlement(HexTile tile, int intersection) {
+        if (canBuildSettlement() && tile.placeSettlement(this, intersection)) {
+            // Deduct resources for the settlement
+            removeResource(Resource.WOOD, 1);
+            removeResource(Resource.BRICK, 1);
+            removeResource(Resource.SHEEP, 1);
+            removeResource(Resource.WHEAT, 1);
+
+            // Add the settlement to the player's list
+            settlements.put(tile, intersection); // Track the tile and intersection
+            victoryPoints++;
+            System.out.println("Settlement successfully placed. Total settlements: " + settlements.size());
+        } else {
+            System.out.println("Invalid settlement placement. Settlement not added.");
+        }
     }
 
-    public void addVictoryCard() {
-        victoryCardsCount++;
+    public boolean canBuildCity() {
+        return hasResource(Resource.WHEAT, 2) &&
+               hasResource(Resource.ORE, 3) &&
+               !settlements.isEmpty();
+    }
+
+    public void upgradeSettlementToCity(HexTile tile, int intersection) {
+        if (canBuildCity() && settlements.containsKey(tile) && settlements.get(tile) == intersection) {
+            removeResource(Resource.WHEAT, 2);
+            removeResource(Resource.ORE, 3);
+            settlements.remove(tile);
+            cities.put(tile, intersection);
+            tile.upgradeSettlementToCity(this, intersection);
+            victoryPoints++;
+        } else {
+            System.out.println("Cannot upgrade. No valid settlement at this location.");
+        }
+    }
+
+    public boolean hasSettlementOnTile(HexTile tile) {
+        return settlements.containsKey(tile);
+    }
+
+    public boolean hasCityOnTile(HexTile tile) {
+        return cities.containsKey(tile);
+    }
+
+    public int getSettlements() {
+        return settlements.size();
+    }
+
+    public int getCities() {
+        return cities.size();
+    }
+
+    // Road Management
+    public boolean canBuildRoad() {
+        return hasResource(Resource.WOOD, 1) && hasResource(Resource.BRICK, 1);
+    }
+
+    public void buildRoad() {
+        if (canBuildRoad()) {
+            removeResource(Resource.WOOD, 1);
+            removeResource(Resource.BRICK, 1);
+            roads++;
+        } else {
+            System.out.println("Insufficient resources to build a road.");
+        }
+    }
+    
+ // Road Management
+    public void placeRoadWithoutResources() {
+        roads++;
+        System.out.println("Road placed without consuming resources.");
+    }
+
+    public int getRoads() {
+        return roads;
+    }
+
+    // Victory Points Management
+    public int getVictoryPoints() {
+        return victoryPoints;
+    }
+
+    public void incrementVictoryPoints() {
         victoryPoints++;
     }
 
-    public int getVictoryCardsCount() {
-        return victoryCardsCount;
-    }
-
-    // Longest road and largest army tracking
+    // Longest Road and Largest Army
     public boolean hasLongestRoad() {
         return hasLongestRoad;
     }
@@ -216,31 +243,7 @@ public class Player {
         }
     }
 
-    // Settlement tracking methods
-    public boolean hasSettlementOnTile(HexTile tile) {
-        return settlements.contains(tile);
-    }
-
-    public void addSettlement(HexTile tile) {
-        settlements.add(tile);
-        tile.addSettlement(this); // Also add the settlement to the tile
-    }
-
-    // Getters for building counts
-    public int getSettlements() {
-        return settlements.size();
-    }
-
-    public int getCities() {
-        return cities;
-    }
-
-    public int getRoads() {
-        return roads;
-    }
-
-    // Development card methods
-
+    // Development Cards
     public boolean hasDevelopmentCard(DevelopmentCardType cardType) {
         return developmentCards.getOrDefault(cardType, 0) > 0;
     }
@@ -249,7 +252,6 @@ public class Player {
         int count = developmentCards.getOrDefault(cardType, 0);
         if (count > 0) {
             developmentCards.put(cardType, count - 1);
-            System.out.println("Used " + cardType + " card.");
         } else {
             System.out.println("No " + cardType + " card available to use.");
         }
@@ -257,22 +259,26 @@ public class Player {
 
     public void addDevelopmentCard(DevelopmentCardType cardType) {
         developmentCards.put(cardType, developmentCards.getOrDefault(cardType, 0) + 1);
-        System.out.println("Added " + cardType + " card.");
     }
 
-    // Retrieves the count of a specified resource for Monopoly
-    public int getResource(Resource resource) {
-        return resources.getOrDefault(resource, 0);
+    public int getVictoryCardsCount() {
+        return victoryCardsCount;
     }
-    
-    public String getResourceSummary() {
-        StringBuilder summary = new StringBuilder();
-        for (Map.Entry<Resource, Integer> entry : resources.entrySet()) {
-            summary.append(entry.getKey()).append(": ").append(entry.getValue()).append(", ");
-        }
-        if (summary.length() > 2) {
-            summary.setLength(summary.length() - 2); // Remove trailing comma and space
-        }
-        return summary.toString();
+
+    public void addVictoryCard() {
+        victoryCardsCount++;
+    }
+
+    public void revealVictoryCards() {
+        victoryPoints += victoryCardsCount;
+        victoryCardsCount = 0;
+    }
+
+    public int getKnights() {
+        return knights;
+    }
+
+    public void incrementKnights() {
+        knights++;
     }
 }

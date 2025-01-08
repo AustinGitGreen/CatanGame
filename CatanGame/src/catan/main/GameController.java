@@ -20,15 +20,15 @@ public class GameController {
 
     public void startGame() {
         System.out.println("Starting the game...");
-        
+
         while (true) {
             game.startTurn();  // Begin the current player's turn
             System.out.println("It's Player " + game.getCurrentPlayer().getId() + "'s turn.");
-            
+
             handlePlayerActions();  // Handle available player actions
 
             game.endTurn();  // End the current player's turn
-            
+
             // Check for a winner after each turn
             if (game.checkVictory()) {
                 System.out.println("Game over! We have a winner.");
@@ -36,19 +36,14 @@ public class GameController {
             }
         }
     }
-    
+
     public Game getGame() {
         return game;
-    }
-    
- // Add this method
-    public Board getBoard() {
-        return game.getBoard(); // Assuming the Game class has a getBoard() method
     }
 
     private void handlePlayerActions() {
         boolean turnActive = true;
-        
+
         while (turnActive) {
             // Display available actions
             System.out.println("Available actions:");
@@ -60,10 +55,10 @@ public class GameController {
             System.out.println("6. End Turn");
             System.out.println("7. View Game Summary");
             System.out.print("Enter action number: ");
-            
+
             int action = scanner.nextInt();
             scanner.nextLine();  // Consume newline
-            
+
             Player currentPlayer = game.getCurrentPlayer();
 
             switch (action) {
@@ -98,13 +93,16 @@ public class GameController {
 
     // Methods for each action
 
-    public void buildSettlement(Player player) {
+    private void buildSettlement(Player player) {
         if (player.canBuildSettlement()) {
-            // Assuming `selectTileForSettlement` method is available in Game
-            HexTile tile = game.selectTileForSettlement(player);
-            if (tile != null) {
-                player.buildSettlement(tile);
-                System.out.println("Settlement built on tile with resource: " + tile.getResourceType());
+            HexTile tile = selectTileForSettlement();
+            if (tile != null && isValidSettlementLocation(player, tile)) {
+                int intersection = selectIntersectionForPlacement();
+                if (tile.placeSettlement(player, intersection)) {
+                    System.out.println("Settlement built on tile with resource: " + tile.getResourceType());
+                } else {
+                    System.out.println("Invalid settlement placement. Try again.");
+                }
             } else {
                 System.out.println("Invalid location for a settlement.");
             }
@@ -113,20 +111,33 @@ public class GameController {
         }
     }
 
-    public void buildCity(Player player) {
+    private void buildCity(Player player) {
         if (player.canBuildCity()) {
-            player.buildCity();
-            System.out.println("City built! Player " + player.getId() + " now has " + player.getVictoryPoints() + " victory points.");
+            HexTile tile = selectTileForSettlement();
+            if (tile != null) {
+                int intersection = selectIntersectionForPlacement();
+                if (tile.upgradeSettlementToCity(player, intersection)) {
+                    System.out.println("City built on tile with resource: " + tile.getResourceType());
+                } else {
+                    System.out.println("You must upgrade an existing settlement to build a city.");
+                }
+            } else {
+                System.out.println("Invalid tile for city upgrade.");
+            }
         } else {
             System.out.println("Insufficient resources to build a city.");
         }
     }
 
-    public void buildRoad(Player player) {
+    private void buildRoad(Player player) {
         if (player.canBuildRoad()) {
-            // Assuming `selectLocationForRoad` method exists in Game
-            player.buildRoad();
-            System.out.println("Road built!");
+            HexTile tile = selectTileForRoad();
+            if (tile != null && isValidRoadLocation(player, tile)) {
+                player.buildRoad();
+                System.out.println("Road built adjacent to tile: " + tile.getResourceType());
+            } else {
+                System.out.println("Invalid location for a road.");
+            }
         } else {
             System.out.println("Insufficient resources to build a road.");
         }
@@ -181,7 +192,7 @@ public class GameController {
         String giveResource = scanner.nextLine().toUpperCase();
         System.out.println("Enter resource to receive: ");
         String receiveResource = scanner.nextLine().toUpperCase();
-        
+
         if (game.playerTrade(player, targetPlayer, Resource.valueOf(giveResource), Resource.valueOf(receiveResource))) {
             System.out.println("Trade successful with Player " + targetPlayerId);
         } else {
@@ -199,7 +210,7 @@ public class GameController {
             System.out.println("Failed to play " + cardType + ". Check if you own the card.");
         }
     }
-    
+
     public void printGameSummary() {
         System.out.println("===== Game Summary =====");
         for (Player player : game.getPlayers()) {
@@ -211,5 +222,37 @@ public class GameController {
             System.out.println("  - Victory Points: " + player.getVictoryPoints());
             System.out.println();
         }
+    }
+
+    // Helper methods for placement validation
+    private HexTile selectTileForSettlement() {
+        System.out.println("Enter tile index for settlement: ");
+        int tileIndex = scanner.nextInt();
+        scanner.nextLine();
+        return game.getBoard().getHexTiles().get(tileIndex);
+    }
+
+    private int selectIntersectionForPlacement() {
+        System.out.println("Enter intersection number (1-6): ");
+        int intersection = scanner.nextInt();
+        scanner.nextLine();
+        return intersection;
+    }
+
+    private HexTile selectTileForRoad() {
+        System.out.println("Enter tile index for road placement: ");
+        int tileIndex = scanner.nextInt();
+        scanner.nextLine();
+        return game.getBoard().getHexTiles().get(tileIndex);
+    }
+
+    private boolean isValidSettlementLocation(Player player, HexTile tile) {
+        // Add custom validation logic (e.g., adjacency rules)
+        return !tile.isDesert(); // Example placeholder
+    }
+
+    private boolean isValidRoadLocation(Player player, HexTile tile) {
+        // Add custom validation logic for road placement
+        return true; // Placeholder logic
     }
 }

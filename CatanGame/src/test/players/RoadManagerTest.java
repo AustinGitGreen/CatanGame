@@ -33,16 +33,6 @@ public class RoadManagerTest {
         road4 = new Road(player1);
         road5 = new Road(player1);
         road6 = new Road(player2); // Road belonging to another player
-
-        // Connect roads for a contiguous path
-        road1.setConnectedRoad1(road2);
-        road2.setConnectedRoad1(road1);
-        road2.setConnectedRoad2(road3);
-        road3.setConnectedRoad1(road2);
-        road3.setConnectedRoad2(road4);
-        road4.setConnectedRoad1(road3);
-        road4.setConnectedRoad2(road5);
-        road5.setConnectedRoad1(road4);
     }
 
     @Test
@@ -54,6 +44,12 @@ public class RoadManagerTest {
 
     @Test
     public void testCalculateLongestRoadWithConnectedRoads() {
+        // Connect roads for Player 1
+        road1.connectRoad(road2);
+        road2.connectRoad(road3);
+        road3.connectRoad(road4);
+        road4.connectRoad(road5);
+
         // Add roads to the RoadManager
         roadManager.addRoad(player1, road1);
         roadManager.addRoad(player1, road2);
@@ -70,19 +66,17 @@ public class RoadManagerTest {
 
     @Test
     public void testCalculateLongestRoadWithDisconnectedRoads() {
-        // Add 3 connected roads (road1, road2, road3)
+        // Connect road1 -> road2 -> road3 in sequence
+        road1.connectRoad(road2);
+        road2.connectRoad(road3);
+
+        // Add roads to the RoadManager
         roadManager.addRoad(player1, road1);
         roadManager.addRoad(player1, road2);
         roadManager.addRoad(player1, road3);
 
-        // Connect road1 -> road2 -> road3 in sequence
-        road1.setConnectedRoad1(road2);
-        road2.setConnectedRoad1(road1);
-        road2.setConnectedRoad2(road3);
-        road3.setConnectedRoad1(road2);
-
-        // Add a disconnected road (road5) for player1
-        roadManager.addRoad(player1, road5); // Road not connected to others
+        // Add a disconnected road (road5) for Player 1
+        roadManager.addRoad(player1, road5);
 
         int longestRoad = roadManager.calculateLongestRoad(player1);
 
@@ -93,21 +87,55 @@ public class RoadManagerTest {
 
     @Test
     public void testCalculateLongestRoadForMultiplePlayers() {
-        // Add roads for player1
+        // Connect Player 1's roads
+        road1.connectRoad(road2);
+        road2.connectRoad(road3);
+
+        // Add Player 1's roads
         roadManager.addRoad(player1, road1);
         roadManager.addRoad(player1, road2);
         roadManager.addRoad(player1, road3);
 
-        // Add roads for player2
-        road6.setConnectedRoad1(new Road(player2)); // Additional connected road for player2
-        roadManager.addRoad(player2, road6);
+        // Connect Player 2's roads
+        Road player2Road = new Road(player2);
+        road6.connectRoad(player2Road);
 
+        // Add Player 2's roads
+        roadManager.addRoad(player2, road6);
+        roadManager.addRoad(player2, player2Road);
+
+        // Calculate longest roads
         int longestRoadPlayer1 = roadManager.calculateLongestRoad(player1);
         int longestRoadPlayer2 = roadManager.calculateLongestRoad(player2);
 
+        // Assertions
         assertEquals("Player1 should have a longest road of length 3", 3, longestRoadPlayer1);
         assertEquals("Player2 should have a longest road of length 2", 2, longestRoadPlayer2);
         assertFalse("Player1 should not have the longest road status", player1.hasLongestRoad());
         assertFalse("Player2 should not have the longest road status", player2.hasLongestRoad());
     }
+
+    @Test
+    public void testCalculateLongestRoadWithBranching() {
+        // Create a branching structure for Player 1
+        road1.connectRoad(road2);
+        road2.connectRoad(road3);
+        road3.connectRoad(road4);
+        road2.connectRoad(road5); // Branch from road2 to road5
+
+        // Add roads to the RoadManager
+        roadManager.addRoad(player1, road1);
+        roadManager.addRoad(player1, road2);
+        roadManager.addRoad(player1, road3);
+        roadManager.addRoad(player1, road4);
+        roadManager.addRoad(player1, road5);
+
+        // Calculate longest road
+        int longestRoad = roadManager.calculateLongestRoad(player1);
+
+        // Assertions
+        assertEquals("Player1 should have a longest road of length 4", 4, longestRoad);
+        assertFalse("Player1 should not have the longest road (requires length >= 5)", player1.hasLongestRoad());
+    }
+
 }

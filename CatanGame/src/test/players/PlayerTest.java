@@ -133,11 +133,16 @@ public class PlayerTest {
 
     @Test
     public void testStealRandomResource() {
+        // Add 1 unit of SHEEP to the player's resources
         player.addResource(Resource.SHEEP, 1);
+
+        // Steal a random resource
         Resource stolenResource = player.stealRandomResource();
-        
+
+        // Assertions
         assertNotNull("Should steal a resource", stolenResource);
-        assertEquals("Player should have 0 sheep after stealing", 0, player.getResource(Resource.SHEEP));
+        assertEquals("Player should have 0 SHEEP after stealing", 0, player.getResource(Resource.SHEEP));
+        assertEquals("Stolen resource should be SHEEP", Resource.SHEEP, stolenResource);
     }
 }
 
