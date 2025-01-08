@@ -98,4 +98,8 @@ public class Player {
     public void addRoad(Road road) {
         roads.add(road);
     }
+
+    public void addVictoryPoints(int i) {
+        this.victoryPoints += i;
+    }
 }
