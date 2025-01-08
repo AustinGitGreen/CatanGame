@@ -1,7 +1,7 @@
 package catan.players;
 
-import resources.Resource;
-import resources.ResourcePool;
+import catan.resources.Resource;
+import catan.resources.ResourcePool;
 import java.util.Map;
 
 /**

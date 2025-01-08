@@ -1,4 +1,4 @@
-package resources;
+package catan.resources;
 
 import java.util.EnumMap;
 import java.util.Map;

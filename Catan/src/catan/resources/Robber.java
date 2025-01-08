@@ -1,4 +1,4 @@
-package resources;
+package catan.resources;
 
 import catan.board.Hex;
 

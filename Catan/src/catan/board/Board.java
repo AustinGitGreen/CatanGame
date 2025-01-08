@@ -1,7 +1,7 @@
 package catan.board;
 
-import resources.Resource;
-import resources.Robber;
+import catan.resources.Resource;
+import catan.resources.Robber;
 
 import java.util.ArrayList;
 import java.util.List;

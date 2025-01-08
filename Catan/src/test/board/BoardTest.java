@@ -6,7 +6,7 @@ import static org.junit.Assert.assertNotNull;
 import org.junit.Before;
 import org.junit.Test;
 
-import resources.Resource;
+import catan.resources.Resource;
 import catan.board.Board;
 
 public class BoardTest {

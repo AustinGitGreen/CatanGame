@@ -1,6 +1,6 @@
 package catan.players;
 
-import resources.Resource;
+import catan.resources.Resource;
 import java.util.EnumMap;
 import java.util.Map;
 

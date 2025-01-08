@@ -6,7 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import catan.board.Hex;
-import resources.Resource;
+import catan.resources.Resource;
 
 public class HexTest {
     private Hex hex;

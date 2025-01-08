@@ -6,8 +6,8 @@ import static org.junit.Assert.assertFalse;
 
 import org.junit.Before;
 import org.junit.Test;
-import resources.Resource;
-import resources.ResourcePool;
+import catan.resources.Resource;
+import catan.resources.ResourcePool;
 
 public class ResourcePoolTest {
     private ResourcePool resourcePool;

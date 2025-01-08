@@ -1,6 +1,6 @@
 package catan.board;
 
-import resources.Resource;
+import catan.resources.Resource;
 
 /**
  * Represents a port on the game board where players can trade resources.

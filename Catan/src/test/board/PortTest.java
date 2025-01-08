@@ -8,7 +8,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import catan.board.Port;
-import resources.Resource;
+import catan.resources.Resource;
 
 public class PortTest {
     private Port genericPort;

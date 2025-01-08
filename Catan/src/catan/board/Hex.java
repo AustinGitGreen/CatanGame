@@ -1,6 +1,6 @@
 package catan.board;
 
-import resources.Resource;
+import catan.resources.Resource;
 
 /**
  * Represents a hex tile on the game board.

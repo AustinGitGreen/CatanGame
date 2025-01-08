@@ -8,7 +8,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import catan.players.Inventory;
-import resources.Resource;
+import catan.resources.Resource;
 
 import java.util.HashMap;
 import java.util.Map;

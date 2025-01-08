@@ -7,8 +7,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import catan.board.Hex;
-import resources.Resource;
-import resources.Robber;
+import catan.resources.Resource;
+import catan.resources.Robber;
 
 public class RobberTest {
     private Robber robber;

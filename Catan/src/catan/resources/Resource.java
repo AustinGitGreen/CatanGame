@@ -1,4 +1,4 @@
-package resources;
+package catan.resources;
 
 /**
  * Enum representing the different resources available in the game.
