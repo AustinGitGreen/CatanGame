@@ -4,8 +4,8 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Before;
 import org.junit.Test;
-import game.TurnManager;
-import players.Player;
+import catan.main.TurnManager;
+import catan.players.Player;
 
 import java.util.ArrayList;
 import java.util.List;

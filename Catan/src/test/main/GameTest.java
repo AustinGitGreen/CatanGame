@@ -5,8 +5,8 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Before;
 import org.junit.Test;
-import game.Game;
-import players.Player;
+import catan.main.Game;
+import catan.players.Player;
 
 public class GameTest {
     private Game game;

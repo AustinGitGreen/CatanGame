@@ -10,8 +10,8 @@ import org.junit.Test;
 
 import catan.players.Inventory;
 import catan.players.Trade;
-import resources.Resource;
-import resources.ResourcePool;
+import catan.resources.Resource;
+import catan.resources.ResourcePool;
 
 public class TradeTest {
     private Inventory player1Inventory;
