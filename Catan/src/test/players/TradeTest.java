@@ -3,12 +3,13 @@ package test.players;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
-import players.Inventory;
-import players.Trade;
+import catan.players.Inventory;
+import catan.players.Trade;
 import resources.Resource;
 import resources.ResourcePool;
 
@@ -39,8 +40,11 @@ public class TradeTest {
     @Test
     public void testPlayerToPlayerTradeSuccessful() {
         // Player 1 offers 2 WOOD, Player 2 offers 1 WHEAT
-        Map<Resource, Integer> player1Offer = Map.of(Resource.WOOD, 2);
-        Map<Resource, Integer> player2Offer = Map.of(Resource.WHEAT, 1);
+        Map<Resource, Integer> player1Offer = new HashMap<>();
+        player1Offer.put(Resource.WOOD, 2);
+
+        Map<Resource, Integer> player2Offer = new HashMap<>();
+        player2Offer.put(Resource.WHEAT, 1);
 
         boolean result = trade.playerToPlayerTrade(player1Inventory, player1Offer, player2Inventory, player2Offer);
 
@@ -52,8 +56,11 @@ public class TradeTest {
     @Test
     public void testPlayerToPlayerTradeInsufficientResources() {
         // Player 1 offers 5 WOOD, Player 2 offers 1 WHEAT (Player 1 doesn't have 5 WOOD)
-        Map<Resource, Integer> player1Offer = Map.of(Resource.WOOD, 5);
-        Map<Resource, Integer> player2Offer = Map.of(Resource.WHEAT, 1);
+        Map<Resource, Integer> player1Offer = new HashMap<>();
+        player1Offer.put(Resource.WOOD, 5);
+
+        Map<Resource, Integer> player2Offer = new HashMap<>();
+        player2Offer.put(Resource.WHEAT, 1);
 
         boolean result = trade.playerToPlayerTrade(player1Inventory, player1Offer, player2Inventory, player2Offer);
 

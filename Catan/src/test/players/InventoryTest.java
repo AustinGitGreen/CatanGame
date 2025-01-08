@@ -7,7 +7,7 @@ import static org.junit.Assert.assertFalse;
 import org.junit.Before;
 import org.junit.Test;
 
-import players.Inventory;
+import catan.players.Inventory;
 import resources.Resource;
 
 import java.util.HashMap;

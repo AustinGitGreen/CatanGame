@@ -5,9 +5,9 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
 
-import board.Intersection;
-import components.City;
-import players.Player;
+import catan.board.Intersection;
+import catan.components.City;
+import catan.players.Player;
 
 public class CityTest {
     private City city;

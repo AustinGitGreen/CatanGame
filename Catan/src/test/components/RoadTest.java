@@ -5,10 +5,10 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
 
-import board.Edge;
-import board.Intersection;
-import components.Road;
-import players.Player;
+import catan.board.Edge;
+import catan.board.Intersection;
+import catan.components.Road;
+import catan.players.Player;
 
 public class RoadTest {
     private Road road;

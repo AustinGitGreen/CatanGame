@@ -5,11 +5,12 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
 
-import board.Intersection;
-import components.City;
-import components.Road;
-import components.Settlement;
-import players.Player;
+import catan.board.Edge;
+import catan.board.Intersection;
+import catan.components.City;
+import catan.components.Road;
+import catan.components.Settlement;
+import catan.players.Player;
 
 public class PlayerTest {
     private Player player;
@@ -51,7 +52,10 @@ public class PlayerTest {
 
     @Test
     public void testAddRoad() {
-        Road road = new Road(player, null);
+        Intersection start = new Intersection(0, 0);
+        Intersection end = new Intersection(1, 0);
+        Edge edge = new Edge(start, end);
+        Road road = new Road(player, edge); // Provide a valid edge
         player.addRoad(road);
 
         assertEquals("Player should have 1 road", 1, player.getRoads().size());

@@ -6,7 +6,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Test;
 
-import board.Hex;
+import catan.board.Hex;
 import resources.Resource;
 import resources.Robber;
 

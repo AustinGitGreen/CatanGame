@@ -1,10 +1,10 @@
 package test.utils;
+import catan.utils.Dice;
 
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Before;
 import org.junit.Test;
-import utils.Dice;
 
 public class DiceTest {
     private Dice dice;

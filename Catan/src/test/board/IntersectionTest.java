@@ -5,6 +5,8 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
 
+import catan.board.Intersection;
+
 public class IntersectionTest {
     private Intersection intersection;
 

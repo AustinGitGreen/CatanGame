@@ -5,8 +5,9 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
 
-import players.Player;
-import board.Intersection;
+import catan.players.Player;
+import catan.board.Intersection;
+import catan.components.Settlement;
 
 public class SettlementTest {
     private Player player;

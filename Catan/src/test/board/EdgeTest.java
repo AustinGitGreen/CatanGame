@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Before;
 import org.junit.Test;
+import catan.board.Edge;
+import catan.board.Intersection;
 
 public class EdgeTest {
     private Intersection start;

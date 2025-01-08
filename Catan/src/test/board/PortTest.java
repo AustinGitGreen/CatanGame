@@ -7,7 +7,7 @@ import static org.junit.Assert.assertFalse;
 import org.junit.Before;
 import org.junit.Test;
 
-import board.Port;
+import catan.board.Port;
 import resources.Resource;
 
 public class PortTest {

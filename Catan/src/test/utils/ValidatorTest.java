@@ -4,11 +4,11 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 
 import org.junit.Test;
-import board.Edge;
-import board.Intersection;
-import components.Settlement;
-import players.Player;
-import utils.Validator;
+import catan.board.Edge;
+import catan.board.Intersection;
+import catan.components.Settlement;
+import catan.players.Player;
+import catan.utils.Validator;
 
 public class ValidatorTest {
 
