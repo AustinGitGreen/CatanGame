@@ -104,22 +104,34 @@ public class Board {
      * @return The next perimeter intersection, or null if not applicable.
      */
     private Intersection getNextPerimeterIntersection(Intersection intersection) {
-        // Example logic to find the next perimeter intersection based on coordinates
+        // Determine the coordinates of the next perimeter intersection
         int x = intersection.getX();
         int y = intersection.getY();
 
-        // Adjust logic based on your actual board layout
+        int nextX = x;
+        int nextY = y;
+
+        // Adjust logic based on the board layout
         if (x == 0 && y < 5) {
-            return new Intersection(x, y + 1); // Move right along the top row
+            nextY = y + 1; // Move right along the top row
         } else if (y == 5 && x < 5) {
-            return new Intersection(x + 1, y); // Move down along the right column
+            nextX = x + 1; // Move down along the right column
         } else if (x == 5 && y > 0) {
-            return new Intersection(x, y - 1); // Move left along the bottom row
+            nextY = y - 1; // Move left along the bottom row
         } else if (y == 0 && x > 0) {
-            return new Intersection(x - 1, y); // Move up along the left column
+            nextX = x - 1; // Move up along the left column
+        } else {
+            return null; // Not on the perimeter
         }
 
-        return null; // No next perimeter intersection
+        // Find and return the existing intersection with these coordinates
+        for (Intersection i : intersections) {
+            if (i.getX() == nextX && i.getY() == nextY) {
+                return i;
+            }
+        }
+
+        return null; // No matching intersection found
     }
 
     /**
