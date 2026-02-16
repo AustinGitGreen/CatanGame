@@ -9,13 +9,15 @@ import catan.players.Player;
 import catan.resources.ResourcePool;
 import catan.utils.Validator;
 import catan.resources.Resource;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.Map;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.Random;
+import java.util.Collections;
 
 /**
  * Represents the main game logic for Catan.
@@ -34,26 +36,20 @@ public class Game {
 
     private GamePhase phase = GamePhase.SETUP;
     private SetupStep setupStep = SetupStep.PLACE_SETTLEMENT;
-    private boolean setupForward = true; // forward in round 1, reverse in round 2
-    private int setupRound = 0; // 0 = first pass, 1 = second pass
-    private Intersection pendingSetupRoadAnchor = null; // settlement just placed; next road must touch this
-    
-    private static final Map<Resource, Integer> ROAD_COST =
-            cost(Resource.WOOD, 1, Resource.BRICK, 1);
+    private boolean setupForward = true;
+    private int setupRound = 0;
+    private Intersection pendingSetupRoadAnchor = null;
 
-    private static final Map<Resource, Integer> SETTLEMENT_COST =
-            cost(Resource.WOOD, 1, Resource.BRICK, 1, Resource.WHEAT, 1, Resource.SHEEP, 1);
+    private static final Map<Resource, Integer> ROAD_COST = cost(Resource.WOOD, 1, Resource.BRICK, 1);
+    private static final Map<Resource, Integer> SETTLEMENT_COST = cost(Resource.WOOD, 1, Resource.BRICK, 1, Resource.WHEAT, 1, Resource.SHEEP, 1);
 
-    /**
-     * Initializes the game with the specified number of players.
-     * @param numberOfPlayers The number of players in the game.
-     */
+    private final Random rng = new Random();
+
     public void initializeGame(int numberOfPlayers) {
         if (numberOfPlayers < 2 || numberOfPlayers > 4) {
             throw new IllegalArgumentException("Number of players must be between 2 and 4");
         }
 
-        // Initialize the board, resource pool, and players
         board = new Board();
         board.initializeBoard();
         resourcePool = new ResourcePool();
@@ -63,9 +59,8 @@ public class Game {
             players.add(new Player("Player " + i));
         }
 
-        turnManager = new TurnManager(players); // Use TurnManager to handle player turns
+        turnManager = new TurnManager(players);
 
-        // Setup phase starts immediately with Player 1 placing a settlement.
         phase = GamePhase.SETUP;
         setupStep = SetupStep.PLACE_SETTLEMENT;
         setupForward = true;
@@ -75,87 +70,28 @@ public class Game {
         System.out.println("Game initialized with " + numberOfPlayers + " players.");
     }
 
-    /**
-     * Gets the list of players in the game.
-     * @return The list of players.
-     */
-    public List<Player> getPlayers() {
-        return players;
-    }
+    public List<Player> getPlayers() { return players; }
+    public Board getBoard() { return board; }
+    public ResourcePool getResourcePool() { return resourcePool; }
+    public Player getCurrentPlayer() { return turnManager.getCurrentPlayer(); }
 
-    /**
-     * Gets the game board.
-     * @return The game board.
-     */
-    public Board getBoard() {
-        return board;
-    }
+    public GamePhase getPhase() { return phase; }
+    public boolean isSetupPhase() { return phase == GamePhase.SETUP; }
+    public SetupStep getSetupStep() { return setupStep; }
+    public int getSetupRound() { return setupRound; }
+    public Intersection getPendingSetupRoadAnchor() { return pendingSetupRoadAnchor; }
 
-    /** Convenience: occupancy lookup for UI/debug. */
-    public Settlement getSettlementAt(Intersection intersection) {
-        return board.getSettlementAt(intersection);
-    }
+    public Settlement getSettlementAt(Intersection intersection) { return board.getSettlementAt(intersection); }
+    public Road getRoadAt(Edge edge) { return board.getRoadAt(edge); }
 
-    /** Convenience: occupancy lookup for UI/debug. */
-    public Road getRoadAt(Edge edge) {
-        return board.getRoadAt(edge);
-    }
-
-    /**
-     * Gets the resource pool.
-     * @return The resource pool.
-     */
-    public ResourcePool getResourcePool() {
-        return resourcePool;
-    }
-
-    /**
-     * Gets the current player.
-     * @return The current player.
-     */
-    public Player getCurrentPlayer() {
-        return turnManager.getCurrentPlayer();
-    }
-
-    public GamePhase getPhase() {
-        return phase;
-    }
-
-    public boolean isSetupPhase() {
-        return phase == GamePhase.SETUP;
-    }
-
-    public SetupStep getSetupStep() {
-        return setupStep;
-    }
-
-    public int getSetupRound() {
-        return setupRound;
-    }
-
-    /**
-     * During setup, after a settlement is placed, the road must touch that intersection.
-     */
-    public Intersection getPendingSetupRoadAnchor() {
-        return pendingSetupRoadAnchor;
-    }
-
-    /**
-     * Ends the current player's turn and moves to the next player.
-     */
     public void endTurn() {
-        if (phase != GamePhase.NORMAL) {
-            throw new IllegalStateException("Cannot end turn during SETUP phase.");
-        }
+        if (phase != GamePhase.NORMAL) throw new IllegalStateException("Cannot end turn during SETUP phase.");
         turnManager.nextTurn();
         System.out.println("It is now " + getCurrentPlayer().getName() + "'s turn.");
     }
 
-    // -------------------- Placement + Validation --------------------
+    // -------------------- Build actions --------------------
 
-    /**
-     * Normal-play settlement build (requires NORMAL rules).
-     */
     public Settlement buildSettlement(Player player, int intersectionIndex) {
         ensureNormalPhase("buildSettlement");
         payCostToBank(player, SETTLEMENT_COST);
@@ -167,9 +103,6 @@ public class Game {
         }
     }
 
-    /**
-     * Normal-play road build (requires NORMAL rules).
-     */
     public Road buildRoad(Player player, int edgeIndex) {
         ensureNormalPhase("buildRoad");
         payCostToBank(player, ROAD_COST);
@@ -181,9 +114,6 @@ public class Game {
         }
     }
 
-    /**
-     * Setup placement: place a settlement (relaxed connectivity rules, but distance rule still applies).
-     */
     public Settlement placeSetupSettlement(Player player, int intersectionIndex) {
         ensureSetupPhase("placeSetupSettlement");
         if (setupStep != SetupStep.PLACE_SETTLEMENT) {
@@ -201,9 +131,6 @@ public class Game {
         return s;
     }
 
-    /**
-     * Setup placement: place a road that must touch the previously placed settlement.
-     */
     public Road placeSetupRoad(Player player, int edgeIndex) {
         ensureSetupPhase("placeSetupRoad");
         if (setupStep != SetupStep.PLACE_ROAD) {
@@ -215,18 +142,19 @@ public class Game {
 
         Road r = placeRoadInternal(player, edgeIndex, true);
 
-        // Advance setup turn order and step.
         pendingSetupRoadAnchor = null;
         setupStep = SetupStep.PLACE_SETTLEMENT;
         advanceSetupTurnOrderAfterRoad();
         return r;
     }
-    
+
+    // -------------------- Resource distribution --------------------
+
     public String distributeResourcesForRoll(int roll) {
         ensureNormalPhase("distributeResourcesForRoll");
 
         if (roll == 7) {
-            return "Rolled 7: robber/discard/steal not implemented yet (no resources distributed).";
+            return "Rolled 7: resolve robber (discard/move/steal).";
         }
 
         Map<Player, Map<Resource, Integer>> requested = new HashMap<>();
@@ -234,42 +162,39 @@ public class Game {
 
         for (catan.board.Hex hex : board.getHexes()) {
             if (hex.getNumberToken() != roll) continue;
+
+            // Robber blocks production on its hex
+            if (board.getRobberHex() != null && board.getRobberHex() == hex) continue;
+
             Resource res = hex.getResource();
             if (res == null) continue;
-            if (res.name().equalsIgnoreCase("DESERT")) continue;
+            if (res == Resource.DESERT) continue;
 
             for (Intersection corner : board.getCornersForHex(hex)) {
                 catan.components.City city = board.getCityAt(corner);
                 if (city != null) {
                     Player owner = city.getOwner();
-                    requested.computeIfAbsent(owner, k -> new EnumMap<>(Resource.class))
-                            .merge(res, 2, Integer::sum);
+                    requested.computeIfAbsent(owner, k -> new EnumMap<>(Resource.class)).merge(res, 2, Integer::sum);
                     totalsByResource.merge(res, 2, Integer::sum);
                     continue;
                 }
-
                 Settlement settlement = board.getSettlementAt(corner);
                 if (settlement != null) {
                     Player owner = settlement.getOwner();
-                    requested.computeIfAbsent(owner, k -> new EnumMap<>(Resource.class))
-                            .merge(res, 1, Integer::sum);
+                    requested.computeIfAbsent(owner, k -> new EnumMap<>(Resource.class)).merge(res, 1, Integer::sum);
                     totalsByResource.merge(res, 1, Integer::sum);
                 }
             }
         }
 
-        if (requested.isEmpty()) {
-            return "No settlements/cities produced resources on " + roll + ".";
-        }
+        if (requested.isEmpty()) return "No settlements/cities produced resources on " + roll + ".";
 
-        // Bank shortage rule: if bank can't cover a resource fully, nobody gets that resource
+        // Bank-shortage rule: if bank can't cover a resource type fully, nobody gets that resource this roll.
         for (Map.Entry<Resource, Integer> e : totalsByResource.entrySet()) {
             Resource res = e.getKey();
             int needed = e.getValue();
             if (!resourcePool.hasEnoughResource(res, needed)) {
-                for (Map<Resource, Integer> m : requested.values()) {
-                    m.remove(res);
-                }
+                for (Map<Resource, Integer> m : requested.values()) m.remove(res);
             }
         }
 
@@ -299,25 +224,112 @@ public class Game {
             report.append(".\n");
         }
 
-        if (!any) {
-            return "Bank could not cover payouts for this roll (no resources distributed).";
-        }
-
+        if (!any) return "Bank could not cover payouts for this roll (no resources distributed).";
         return report.toString();
     }
 
+    // -------------------- Robber (roll of 7) --------------------
+
+    public boolean mustDiscardOnSeven(Player player) {
+        if (player == null) return false;
+        return player.getInventory().getTotalResourceCards() > 7;
+    }
+
+    public int getDiscardCountOnSeven(Player player) {
+        int total = player.getInventory().getTotalResourceCards();
+        return (total > 7) ? (total / 2) : 0;
+    }
+
+    public void discardResourcesToBank(Player player, Map<Resource, Integer> discard) {
+        ensureNormalPhase("discardResourcesToBank");
+        if (player == null) throw new IllegalArgumentException("Player cannot be null");
+        if (discard == null) throw new IllegalArgumentException("Discard map cannot be null");
+
+        int required = getDiscardCountOnSeven(player);
+        if (required <= 0) return;
+
+        int sum = 0;
+        for (Map.Entry<Resource, Integer> e : discard.entrySet()) {
+            Resource r = e.getKey();
+            int amt = (e.getValue() == null) ? 0 : e.getValue();
+            if (r == null) continue;
+            if (r == Resource.DESERT) throw new IllegalArgumentException("Cannot discard DESERT");
+            if (amt < 0) throw new IllegalArgumentException("Discard amounts cannot be negative");
+            if (!player.getInventory().hasEnoughResource(r, amt)) throw new IllegalArgumentException("Not enough " + r + " to discard");
+            sum += amt;
+        }
+        if (sum != required) throw new IllegalArgumentException("Must discard exactly " + required + " cards (you entered " + sum + ")");
+
+        player.getInventory().removeResources(discard);
+        resourcePool.addResources(discard);
+    }
+
+    public int getRobberHexIndex() {
+        catan.board.Hex rh = board.getRobberHex();
+        if (rh == null) return -1;
+        return board.getHexes().indexOf(rh);
+    }
+
+    public void moveRobberToHex(int hexIndex) {
+        ensureNormalPhase("moveRobberToHex");
+        if (hexIndex < 0 || hexIndex >= board.getHexes().size()) throw new IllegalArgumentException("Hex index out of range");
+        int currentIdx = getRobberHexIndex();
+        if (currentIdx == hexIndex) throw new IllegalArgumentException("Robber must be moved to a different hex");
+        board.moveRobberTo(board.getHexes().get(hexIndex));
+    }
+
+    public List<Player> getRobbablePlayers(Player currentPlayer) {
+        catan.board.Hex rh = board.getRobberHex();
+        if (rh == null) return Collections.emptyList();
+
+        Map<String, Player> uniq = new HashMap<>();
+        for (Intersection corner : board.getCornersForHex(rh)) {
+            catan.components.City city = board.getCityAt(corner);
+            if (city != null) {
+                Player owner = city.getOwner();
+                if (owner != null && owner != currentPlayer && owner.getInventory().hasAnyResources()) uniq.put(owner.getName(), owner);
+                continue;
+            }
+            Settlement s = board.getSettlementAt(corner);
+            if (s != null) {
+                Player owner = s.getOwner();
+                if (owner != null && owner != currentPlayer && owner.getInventory().hasAnyResources()) uniq.put(owner.getName(), owner);
+            }
+        }
+        return new ArrayList<>(uniq.values());
+    }
+
+    public Resource stealRandomResource(Player thief, Player victim) {
+        ensureNormalPhase("stealRandomResource");
+        if (thief == null || victim == null) throw new IllegalArgumentException("Players cannot be null");
+        if (!victim.getInventory().hasAnyResources()) return null;
+
+        int total = victim.getInventory().getTotalResourceCards();
+        int pick = rng.nextInt(total) + 1;
+
+        for (Resource r : Resource.values()) {
+            if (r == Resource.DESERT) continue;
+            int c = victim.getInventory().getResourceCount(r);
+            if (c <= 0) continue;
+            pick -= c;
+            if (pick <= 0) {
+                victim.getInventory().removeResource(r, 1);
+                thief.getInventory().addResource(r, 1);
+                return r;
+            }
+        }
+        return null;
+    }
+
+    // -------------------- Internals --------------------
 
     private Settlement placeSettlementInternal(Player player, int intersectionIndex, boolean isSetup) {
         if (player == null) throw new IllegalArgumentException("Player cannot be null.");
         List<Intersection> ints = board.getIntersections();
-        if (intersectionIndex < 0 || intersectionIndex >= ints.size()) {
-            throw new IllegalArgumentException("Intersection index out of range.");
-        }
+        if (intersectionIndex < 0 || intersectionIndex >= ints.size()) throw new IllegalArgumentException("Intersection index out of range.");
         Intersection loc = ints.get(intersectionIndex);
 
-        if (!Validator.isValidSettlementPlacement(board, player, loc, isSetup)) {
-            throw new IllegalArgumentException("Invalid settlement placement.");
-        }
+        if (!Validator.isValidSettlementPlacement(board, player, loc, isSetup)) throw new IllegalArgumentException("Invalid settlement placement.");
 
         Settlement s = new Settlement(player, loc);
         board.placeSettlement(s);
@@ -328,19 +340,13 @@ public class Game {
     private Road placeRoadInternal(Player player, int edgeIndex, boolean isSetup) {
         if (player == null) throw new IllegalArgumentException("Player cannot be null.");
         List<Edge> es = board.getEdges();
-        if (edgeIndex < 0 || edgeIndex >= es.size()) {
-            throw new IllegalArgumentException("Edge index out of range.");
-        }
+        if (edgeIndex < 0 || edgeIndex >= es.size()) throw new IllegalArgumentException("Edge index out of range.");
         Edge edge = es.get(edgeIndex);
 
         if (isSetup) {
-            if (!Validator.isValidSetupRoadPlacement(board, player, edge, pendingSetupRoadAnchor)) {
-                throw new IllegalArgumentException("Invalid setup road placement.");
-            }
+            if (!Validator.isValidSetupRoadPlacement(board, player, edge, pendingSetupRoadAnchor)) throw new IllegalArgumentException("Invalid setup road placement.");
         } else {
-            if (!Validator.isValidRoadPlacement(board, player, edge)) {
-                throw new IllegalArgumentException("Invalid road placement.");
-            }
+            if (!Validator.isValidRoadPlacement(board, player, edge)) throw new IllegalArgumentException("Invalid road placement.");
         }
 
         Road r = new Road(player, edge);
@@ -350,15 +356,11 @@ public class Game {
     }
 
     private void ensureSetupPhase(String action) {
-        if (phase != GamePhase.SETUP) {
-            throw new IllegalStateException(action + " is only allowed during SETUP phase.");
-        }
+        if (phase != GamePhase.SETUP) throw new IllegalStateException(action + " is only allowed during SETUP phase.");
     }
 
     private void ensureNormalPhase(String action) {
-        if (phase != GamePhase.NORMAL) {
-            throw new IllegalStateException(action + " is only allowed during NORMAL phase.");
-        }
+        if (phase != GamePhase.NORMAL) throw new IllegalStateException(action + " is only allowed during NORMAL phase.");
     }
 
     private void advanceSetupTurnOrderAfterRoad() {
@@ -367,18 +369,14 @@ public class Game {
 
         if (setupForward) {
             if (idx == n - 1) {
-                // End of first pass: switch to reverse, stay on last player.
                 setupForward = false;
                 setupRound = 1;
-                // Do not change idx
             } else {
                 turnManager.nextTurn();
             }
         } else {
             if (idx == 0) {
-                // End of second pass: setup complete -> NORMAL phase
                 phase = GamePhase.NORMAL;
-                // In normal play, Player 1 starts (standard rule).
                 turnManager.setCurrentPlayerIndex(0);
             } else {
                 turnManager.previousTurn();
@@ -386,32 +384,18 @@ public class Game {
         }
     }
 
-    /**
-     * Checks if a player has won the game.
-     * @return True if a player has won, false otherwise.
-     */
     public boolean checkVictory() {
-        for (Player player : players) {
-            if (player.getVictoryPoints() >= 10) {
-                return true;
-            }
-        }
+        for (Player player : players) if (player.getVictoryPoints() >= 10) return true;
         return false;
     }
 
-    /**
-     * Gets the winning player, if there is one.
-     * @return The winning player, or null if no player has won yet.
-     */
     public Player getWinningPlayer() {
-        for (Player player : players) {
-            if (player.getVictoryPoints() >= 10) {
-                return player;
-            }
-        }
+        for (Player player : players) if (player.getVictoryPoints() >= 10) return player;
         return null;
     }
-    
+
+    // -------------------- Economy helpers --------------------
+
     private static Map<Resource, Integer> cost(Object... kv) {
         Map<Resource, Integer> m = new EnumMap<>(Resource.class);
         for (int i = 0; i < kv.length; i += 2) {
@@ -423,9 +407,7 @@ public class Game {
     }
 
     private void payCostToBank(Player player, Map<Resource, Integer> cost) {
-        if (!player.getInventory().hasEnoughResources(cost)) {
-            throw new IllegalArgumentException("Not enough resources to build.");
-        }
+        if (!player.getInventory().hasEnoughResources(cost)) throw new IllegalArgumentException("Not enough resources to build.");
         player.getInventory().removeResources(cost);
         resourcePool.addResources(cost);
     }
@@ -442,7 +424,7 @@ public class Game {
         for (catan.board.Hex hex : board.getHexesTouchingIntersection(loc)) {
             Resource res = hex.getResource();
             if (res == null) continue;
-            if (res.name().equalsIgnoreCase("DESERT")) continue;
+            if (res == Resource.DESERT) continue;
 
             if (resourcePool.hasEnoughResource(res, 1)) {
                 resourcePool.removeResource(res, 1);
@@ -451,41 +433,24 @@ public class Game {
         }
     }
 
-    /**
-     * Starts the game loop, interacting with the console.
-     * NOTE: This is legacy (kept for reference). Prefer ConsoleGameController.
-     */
     public void startGame() {
         Scanner scanner = new Scanner(System.in);
-
         System.out.println("Starting the game...");
         while (!checkVictory()) {
             Player currentPlayer = getCurrentPlayer();
             System.out.println(currentPlayer.getName() + ", it's your turn.");
-
-            // Example of interaction: Roll dice (simulate with random numbers)
             System.out.println("Rolling the dice...");
             int diceRoll = (int) (Math.random() * 6 + 1) + (int) (Math.random() * 6 + 1);
             System.out.println("You rolled: " + diceRoll);
-
-            // End turn
             System.out.println("Enter any key to end your turn.");
             scanner.nextLine();
             endTurn();
         }
-
         Player winner = getWinningPlayer();
         System.out.println("Congratulations, " + winner.getName() + "! You have won the game with " + winner.getVictoryPoints() + " victory points!");
-
         scanner.close();
     }
 
-    /**
-     * Main entry point for running the game from the command line.
-     * Accepts an optional first argument for the number of players (2-4).
-     * If no argument is provided, the user is prompted for the value.
-     * @param args Command-line arguments.
-     */
     public static void main(String[] args) {
         Game game = new Game();
         int numberOfPlayers;
@@ -514,7 +479,6 @@ public class Game {
 
         try {
             game.initializeGame(numberOfPlayers);
-            // Use the console controller (setup + normal phases).
             Scanner scanner = new Scanner(System.in);
             ConsoleGameController controller = new ConsoleGameController(game, scanner);
             controller.run();

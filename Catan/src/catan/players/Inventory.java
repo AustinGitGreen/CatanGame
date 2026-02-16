@@ -59,12 +59,28 @@ public class Inventory {
         }
     }
 
+    /** Total number of resource cards in hand (excludes DESERT). */
+    public int getTotalResourceCards() {
+        int total = 0;
+        for (Map.Entry<Resource, Integer> e : resourceCounts.entrySet()) {
+            Resource r = e.getKey();
+            if (r == Resource.DESERT) continue;
+            total += e.getValue();
+        }
+        return total;
+    }
+
+    /** True if the player has at least one resource card (excludes DESERT). */
+    public boolean hasAnyResources() {
+        return getTotalResourceCards() > 0;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         boolean first = true;
         for (Resource r : Resource.values()) {
-            if (r.name().equalsIgnoreCase("DESERT")) continue;
+            if (r == Resource.DESERT) continue;
             if (!first) sb.append(", ");
             sb.append(r).append(": ").append(getResourceCount(r));
             first = false;
