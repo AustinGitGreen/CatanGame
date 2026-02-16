@@ -4,6 +4,11 @@ import catan.board.Board;
 import catan.players.Player;
 import catan.main.TurnManager;
 import catan.resources.ResourcePool;
+import catan.board.Edge;
+import catan.board.Intersection;
+import catan.components.Road;
+import catan.components.Settlement;
+import catan.utils.Validator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -107,33 +112,84 @@ public class Game {
         }
         return null;
     }
+    
+    /**
+     * Finds an existing settlement at an intersection, if any.
+     */
+    public Settlement getSettlementAt(Intersection intersection) {
+        for (Player p : players) {
+            for (Settlement s : p.getSettlements()) {
+                if (s.getLocation().equals(intersection)) return s;
+            }
+            // (Later) also check cities if you store them similarly
+        }
+        return null;
+    }
 
     /**
-     * Starts the game loop, interacting with the console.
+     * Finds an existing road on an edge, if any.
      */
-    public void startGame() {
-        Scanner scanner = new Scanner(System.in);
+    public Road getRoadAt(Edge edge) {
+        for (Player p : players) {
+            for (Road r : p.getRoads()) {
+                Edge re = r.getEdge();
+                // Edge has no equals(), so compare endpoints
+                boolean sameDir = re.getStart().equals(edge.getStart()) && re.getEnd().equals(edge.getEnd());
+                boolean oppDir  = re.getStart().equals(edge.getEnd()) && re.getEnd().equals(edge.getStart());
+                if (sameDir || oppDir) return r;
+            }
+        }
+        return null;
+    }
 
-        System.out.println("Starting the game...");
-        while (!checkVictory()) {
-            Player currentPlayer = getCurrentPlayer();
-            System.out.println(currentPlayer.getName() + ", it's your turn.");
+    /**
+     * Builds a settlement for player at the given intersection index.
+     * NOTE: This currently checks only "unoccupied". Distance rule, costs, adjacency-to-road come later.
+     */
+    public Settlement buildSettlement(Player player, int intersectionIndex) {
+        if (player == null) throw new IllegalArgumentException("Player cannot be null.");
 
-            // Example of interaction: Roll dice (simulate with random numbers)
-            System.out.println("Rolling the dice...");
-            int diceRoll = (int) (Math.random() * 6 + 1) + (int) (Math.random() * 6 + 1);
-            System.out.println("You rolled: " + diceRoll);
-
-            // End turn
-            System.out.println("Enter any key to end your turn.");
-            scanner.nextLine();
-            endTurn();
+        List<Intersection> ints = board.getIntersections();
+        if (intersectionIndex < 0 || intersectionIndex >= ints.size()) {
+            throw new IllegalArgumentException("Intersection index out of range.");
         }
 
-        Player winner = getWinningPlayer();
-        System.out.println("Congratulations, " + winner.getName() + "! You have won the game with " + winner.getVictoryPoints() + " victory points!");
+        Intersection loc = ints.get(intersectionIndex);
+        Settlement existing = getSettlementAt(loc);
 
-        scanner.close();
+        if (!Validator.isValidSettlementPlacement(loc, existing)) {
+            throw new IllegalArgumentException("Intersection is invalid or already occupied.");
+        }
+
+        Settlement s = new Settlement(player, loc);
+        player.addSettlement(s);
+        return s;
+    }
+
+    /**
+     * Builds a road for player at the given edge index.
+     * NOTE: This currently checks only "edge exists and not occupied". Connectivity & costs come later.
+     */
+    public Road buildRoad(Player player, int edgeIndex) {
+        if (player == null) throw new IllegalArgumentException("Player cannot be null.");
+
+        List<Edge> edges = board.getEdges();
+        if (edgeIndex < 0 || edgeIndex >= edges.size()) {
+            throw new IllegalArgumentException("Edge index out of range.");
+        }
+
+        Edge e = edges.get(edgeIndex);
+        if (getRoadAt(e) != null) {
+            throw new IllegalArgumentException("Edge already has a road.");
+        }
+
+        if (!Validator.isValidRoadPlacement(e, player)) {
+            throw new IllegalArgumentException("Invalid road placement.");
+        }
+
+        Road r = new Road(player, e);
+        player.addRoad(r);
+        return r;
     }
 
     /**
@@ -170,7 +226,10 @@ public class Game {
 
         try {
             game.initializeGame(numberOfPlayers);
-            game.startGame();
+            Scanner scanner = new Scanner(System.in);
+            ConsoleGameController controller = new ConsoleGameController(game, scanner);
+            controller.run();
+            scanner.close();
         } catch (IllegalArgumentException e) {
             System.out.println(e.getMessage());
         }
