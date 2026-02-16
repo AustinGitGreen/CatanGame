@@ -135,4 +135,44 @@ public class Game {
 
         scanner.close();
     }
+
+    /**
+     * Main entry point for running the game from the command line.
+     * Accepts an optional first argument for the number of players (2-4).
+     * If no argument is provided, the user is prompted for the value.
+     * @param args Command-line arguments.
+     */
+    public static void main(String[] args) {
+        Game game = new Game();
+        int numberOfPlayers;
+
+        if (args.length > 0) {
+            try {
+                numberOfPlayers = Integer.parseInt(args[0]);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid number of players: " + args[0]);
+                System.out.println("Usage: java catan.main.Game [2-4]");
+                return;
+            }
+        } else {
+            Scanner scanner = new Scanner(System.in);
+            System.out.println("Enter number of players (2-4):");
+
+            if (!scanner.hasNextInt()) {
+                System.out.println("Invalid input. Please enter a whole number between 2 and 4.");
+                scanner.close();
+                return;
+            }
+
+            numberOfPlayers = scanner.nextInt();
+            scanner.nextLine();
+        }
+
+        try {
+            game.initializeGame(numberOfPlayers);
+            game.startGame();
+        } catch (IllegalArgumentException e) {
+            System.out.println(e.getMessage());
+        }
+    }
 }
