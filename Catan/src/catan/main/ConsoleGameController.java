@@ -25,30 +25,132 @@ public class ConsoleGameController {
     public void run() {
         System.out.println("Starting Catan (console controller)...");
 
+        // Main loop: setup first, then normal play until victory
         while (!game.checkVictory()) {
-            Player current = game.getCurrentPlayer();
 
-            System.out.println("\n==============================");
-            System.out.println("Turn: " + current.getName());
-            System.out.println("Victory Points: " + current.getVictoryPoints());
-            System.out.println("==============================");
+            if (game.isSetupPhase()) {
+                runSetupTurn();
+                continue;
+            }
 
-            // 1) ROLL (mandatory)
-            int roll = handleRollPhase();
-
-            // (Later) You’d call: game.distributeResources(roll) and print a report.
-            // For now, we just show the roll.
-            System.out.println("Rolled: " + roll);
-
-            // 2) ACTION PHASE (menu loop)
-            handleActionPhase(current);
-
-            // 3) END TURN
-            game.endTurn();
+            runNormalTurn();
         }
 
         Player winner = game.getWinningPlayer();
         System.out.println("\n🎉 Winner: " + winner.getName() + " with " + winner.getVictoryPoints() + " VP!");
+    }
+
+    // -------------------- SETUP --------------------
+
+    private void runSetupTurn() {
+        Player current = game.getCurrentPlayer();
+
+        System.out.println("\n==============================");
+        System.out.println("SETUP PHASE | Round " + (game.getSetupRound() + 1));
+        System.out.println("Player: " + current.getName());
+        System.out.println("Step: " + game.getSetupStep());
+        System.out.println("==============================");
+
+        boolean done = false;
+        while (!done && game.isSetupPhase()) {
+            printSetupMenu();
+            int choice = promptInt("Choose an option: ", 1, 6);
+
+            switch (choice) {
+                case 1 : {
+                    if (game.getSetupStep() != Game.SetupStep.PLACE_SETTLEMENT) {
+                        System.out.println("❌ Not time to place a settlement. Current step: " + game.getSetupStep());
+                        break;
+                    }
+                    placeSetupSettlementFlow(current);
+                    // If settlement succeeds, step becomes PLACE_ROAD; keep looping.
+                }
+                case 2 : {
+                    if (game.getSetupStep() != Game.SetupStep.PLACE_ROAD) {
+                        System.out.println("❌ Not time to place a road. Current step: " + game.getSetupStep());
+                        break;
+                    }
+                    placeSetupRoadFlow(current);
+                    // If road succeeds, Game advances setup order; exit this player's setup loop.
+                    done = true;
+                }
+                case 3 : viewMyInfo(current);
+                case 4 : listIntersections();
+                case 5 : listEdges();
+                case 6 : {
+                    // In setup you normally can't "skip" — but allow viewing-only exit.
+                    System.out.println("Returning to setup prompt...");
+                    done = true;
+                }
+                default : System.out.println("Unknown option.");
+            }
+        }
+    }
+
+    private void printSetupMenu() {
+        System.out.println("\n--- Setup Menu ---");
+        System.out.println("1) Place Settlement");
+        System.out.println("2) Place Road (must touch your just-placed settlement)");
+        System.out.println("3) View My Info");
+        System.out.println("4) List Intersections");
+        System.out.println("5) List Edges");
+        System.out.println("6) Back");
+    }
+
+    private void placeSetupSettlementFlow(Player current) {
+        listIntersections();
+        int idx = promptInt("Intersection index to place settlement on: ",
+                0, game.getBoard().getIntersections().size() - 1);
+
+        try {
+            Settlement s = game.placeSetupSettlement(current, idx);
+            Intersection loc = s.getLocation();
+            System.out.println("✅ Setup settlement placed at (" + loc.getX() + "," + loc.getY() + ")");
+            System.out.println("Next: place a road that touches this settlement.");
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            System.out.println("❌ Can't place setup settlement: " + ex.getMessage());
+        }
+    }
+
+    private void placeSetupRoadFlow(Player current) {
+        listEdges();
+        int idx = promptInt("Edge index to place road on: ",
+                0, game.getBoard().getEdges().size() - 1);
+
+        try {
+            Road r = game.placeSetupRoad(current, idx);
+            System.out.println("✅ Setup road placed on edge " + formatEdge(r.getEdge()));
+
+            // The game may transition to NORMAL after the last setup road
+            if (!game.isSetupPhase()) {
+                System.out.println("\n✅ Setup complete! Entering NORMAL play.");
+            }
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            System.out.println("❌ Can't place setup road: " + ex.getMessage());
+        }
+    }
+
+    // -------------------- NORMAL --------------------
+
+    private void runNormalTurn() {
+        Player current = game.getCurrentPlayer();
+
+        System.out.println("\n==============================");
+        System.out.println("Turn: " + current.getName());
+        System.out.println("Victory Points: " + current.getVictoryPoints());
+        System.out.println("==============================");
+
+        // 1) ROLL (mandatory)
+        int roll = handleRollPhase();
+        System.out.println("Rolled: " + roll);
+
+        // (Later) game.distributeResources(roll) and print a report.
+
+        // 2) ACTION PHASE
+        handleActionPhase(current);
+
+        // 3) END TURN
+        game.endTurn();
     }
 
     private int handleRollPhase() {
@@ -92,20 +194,22 @@ public class ConsoleGameController {
 
     private void buildRoadFlow(Player current) {
         listEdges();
-        int idx = promptInt("Edge index to place road on: ", 0, game.getBoard().getEdges().size() - 1);
+        int idx = promptInt("Edge index to place road on: ",
+                0, game.getBoard().getEdges().size() - 1);
 
         try {
             Road road = game.buildRoad(current, idx);
             System.out.println("✅ Built road for " + road.getOwner().getName()
-                    + " on edge (" + formatEdge(road.getEdge()) + ")");
-        } catch (IllegalArgumentException ex) {
+                    + " on edge " + formatEdge(road.getEdge()));
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             System.out.println("❌ Can't build road: " + ex.getMessage());
         }
     }
 
     private void buildSettlementFlow(Player current) {
         listIntersections();
-        int idx = promptInt("Intersection index to place settlement on: ", 0, game.getBoard().getIntersections().size() - 1);
+        int idx = promptInt("Intersection index to place settlement on: ",
+                0, game.getBoard().getIntersections().size() - 1);
 
         try {
             Settlement settlement = game.buildSettlement(current, idx);
@@ -113,10 +217,12 @@ public class ConsoleGameController {
             System.out.println("✅ Built settlement for " + settlement.getOwner().getName()
                     + " at (" + loc.getX() + "," + loc.getY() + ")"
                     + " | VP now: " + current.getVictoryPoints());
-        } catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             System.out.println("❌ Can't build settlement: " + ex.getMessage());
         }
     }
+
+    // -------------------- VIEW HELPERS --------------------
 
     private void viewMyInfo(Player p) {
         System.out.println("\n--- My Info ---");
@@ -126,9 +232,8 @@ public class ConsoleGameController {
         System.out.println("Cities: " + p.getCities().size());
         System.out.println("Roads: " + p.getRoads().size());
 
-        // When you add Inventory to Player, you can print resources here.
-        // Example later:
-        // System.out.println("Resources: " + p.getInventory().toString());
+        // When you wire Inventory into Player:
+        // System.out.println("Resources: " + p.getInventory());
     }
 
     private void viewAllPlayers() {
@@ -147,7 +252,7 @@ public class ConsoleGameController {
         System.out.println("\n--- Intersections ---");
         for (int i = 0; i < ints.size(); i++) {
             Intersection in = ints.get(i);
-            String occ = game.getSettlementAt(in) != null ? " (occupied)" : "";
+            String occ = (game.getSettlementAt(in) != null || game.getBoard().getCityAt(in) != null) ? " (occupied)" : "";
             System.out.println(i + ") (" + in.getX() + "," + in.getY() + ")" + occ);
         }
     }
@@ -169,10 +274,16 @@ public class ConsoleGameController {
         System.out.println("Edges: " + game.getBoard().getEdges().size());
     }
 
+    // -------------------- INPUT + FORMAT --------------------
+
     private int promptInt(String prompt, int min, int max) {
         while (true) {
             System.out.print(prompt);
             String line = scanner.nextLine().trim();
+            if (line.isEmpty()) {
+                System.out.println("Enter a number from " + min + " to " + max + ".");
+                continue;
+            }
             try {
                 int val = Integer.parseInt(line);
                 if (val < min || val > max) {

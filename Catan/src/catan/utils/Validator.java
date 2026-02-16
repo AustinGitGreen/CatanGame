@@ -1,42 +1,100 @@
 package catan.utils;
 
+import catan.board.Board;
 import catan.board.Edge;
 import catan.board.Intersection;
-import catan.components.Settlement;
+import catan.components.Road;
 import catan.players.Player;
 
+import java.util.List;
+
 /**
- * Validator class to validate game rules.
+ * Validates core game rules.
+ *
+ * This is intentionally "rule-only": it does not mutate game state.
  */
 public class Validator {
 
     /**
-     * Validates settlement placement.
-     * @param intersection The intersection where the settlement is being placed.
-     * @param settlement The existing settlement at the intersection (if any).
-     * @return True if the placement is valid, false otherwise.
+     * Settlement placement rules.
+     *
+     * Setup phase:
+     * - Intersection must be empty
+     * - Distance rule: no adjacent intersections may be occupied
+     *
+     * Normal phase:
+     * - Same as setup
+     * - Must connect to player's existing road network
      */
-    public static boolean isValidSettlementPlacement(Intersection intersection, Settlement settlement) {
-        return intersection != null && settlement == null; // Valid if intersection exists and is unoccupied
+    public static boolean isValidSettlementPlacement(Board board, Player player, Intersection intersection, boolean isSetupPhase) {
+        if (board == null || player == null || intersection == null) return false;
+        if (board.isIntersectionOccupied(intersection)) return false;
+
+        // Distance rule: adjacent intersections must be empty
+        for (Intersection adj : board.getAdjacentIntersections(intersection)) {
+            if (board.isIntersectionOccupied(adj)) return false;
+        }
+
+        if (isSetupPhase) {
+            return true;
+        }
+
+        // Normal rule: settlement must connect to player's road network
+        return isIntersectionConnectedToPlayerNetwork(board, player, intersection);
     }
 
     /**
-     * Validates road placement.
-     * @param edge The edge where the road is being placed.
-     * @param player The player placing the road.
-     * @return True if the placement is valid, false otherwise.
+     * Normal road placement rules:
+     * - Edge must be empty
+     * - Road must connect to player's existing network (road or settlement/city)
      */
-    public static boolean isValidRoadPlacement(Edge edge, Player player) {
-        return edge != null && player != null; // Basic validation for example
+    public static boolean isValidRoadPlacement(Board board, Player player, Edge edge) {
+        if (board == null || player == null || edge == null) return false;
+        if (board.isEdgeOccupied(edge)) return false;
+
+        // Connects to player's network via either endpoint
+        return isIntersectionConnectedToPlayerNetwork(board, player, edge.getStart())
+                || isIntersectionConnectedToPlayerNetwork(board, player, edge.getEnd());
     }
 
     /**
-     * Validates trade amounts.
-     * @param offerAmount The amount of resources being offered.
-     * @param requestAmount The amount of resources being requested.
-     * @return True if the trade is valid, false otherwise.
+     * Setup road placement rules:
+     * - Edge must be empty
+     * - Must touch the anchor (the settlement just placed this setup turn)
+     */
+    public static boolean isValidSetupRoadPlacement(Board board, Player player, Edge edge, Intersection anchor) {
+        if (board == null || player == null || edge == null || anchor == null) return false;
+        if (board.isEdgeOccupied(edge)) return false;
+
+        // Must touch the anchor intersection
+        return edge.getStart().equals(anchor) || edge.getEnd().equals(anchor);
+    }
+
+    /**
+     * Trade amounts.
      */
     public static boolean isValidTrade(int offerAmount, int requestAmount) {
-        return offerAmount > 0 && requestAmount > 0; // Both offer and request must be positive
+        return offerAmount > 0 && requestAmount > 0;
+    }
+
+    // -------------------- Helpers --------------------
+
+    private static boolean isIntersectionConnectedToPlayerNetwork(Board board, Player player, Intersection intersection) {
+        // If player already has a settlement/city here (shouldn't happen for new placement)
+        if (playerOwnsBuildingAtIntersection(player, intersection)) return true;
+
+        // If any adjacent edge has a player's road, it's connected
+        List<Edge> touching = board.getEdgesTouching(intersection);
+        for (Edge e : touching) {
+            Road r = board.getRoadAt(e);
+            if (r != null && r.getOwner() == player) return true;
+        }
+        return false;
+    }
+
+    private static boolean playerOwnsBuildingAtIntersection(Player player, Intersection intersection) {
+        // Player stores settlements/cities lists.
+        return player.getSettlements().stream().anyMatch(s -> s.getLocation().equals(intersection))
+                || player.getCities().stream().anyMatch(c -> c.getLocation().equals(intersection));
     }
 }

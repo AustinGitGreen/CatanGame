@@ -5,36 +5,48 @@ import catan.players.Player;
 import java.util.List;
 
 /**
- * Manages the turns of players in the game.
+ * Handles player turn rotation.
  */
 public class TurnManager {
-    private List<Player> players;
+    private final List<Player> players;
     private int currentPlayerIndex;
 
-    /**
-     * Constructs a TurnManager with the given list of players.
-     * @param players The list of players in the game.
-     */
     public TurnManager(List<Player> players) {
         if (players == null || players.isEmpty()) {
-            throw new IllegalArgumentException("Players list cannot be null or empty");
+            throw new IllegalArgumentException("Players list cannot be null or empty.");
         }
         this.players = players;
-        this.currentPlayerIndex = 0; // Start with the first player
+        this.currentPlayerIndex = 0;
     }
 
-    /**
-     * Gets the current player.
-     * @return The current player.
-     */
     public Player getCurrentPlayer() {
         return players.get(currentPlayerIndex);
     }
 
-    /**
-     * Moves to the next player's turn.
-     */
     public void nextTurn() {
         currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+    }
+
+    public void previousTurn() {
+        currentPlayerIndex = (currentPlayerIndex - 1 + players.size()) % players.size();
+    }
+
+    public int getCurrentPlayerIndex() {
+        return currentPlayerIndex;
+    }
+
+    public void setCurrentPlayerIndex(int idx) {
+        if (idx < 0 || idx >= players.size()) {
+            throw new IllegalArgumentException("Player index out of range.");
+        }
+        this.currentPlayerIndex = idx;
+    }
+
+    public int getPlayerCount() {
+        return players.size();
+    }
+
+    public List<Player> getPlayers() {
+        return players;
     }
 }

@@ -1,5 +1,8 @@
 package catan.board;
 
+import catan.components.City;
+import catan.components.Road;
+import catan.components.Settlement;
 import catan.resources.Resource;
 import catan.resources.Robber;
 
@@ -8,12 +11,11 @@ import java.util.*;
 /**
  * Represents the game board, including hexes, intersections, edges, and the robber.
  *
- * This implementation generates a LEGAL classic Catan topology:
- * - 19 hexes (3-4-5-4-3 layout)
+ * This board generator creates a classic 19-hex Catan topology (3-4-5-4-3 layout)
+ * resulting in:
+ * - 19 hexes
  * - 54 intersections
  * - 72 edges
- *
- * It does NOT create a rectangular grid or wrap-around edges.
  */
 public class Board {
     private List<Hex> hexes;
@@ -21,22 +23,33 @@ public class Board {
     private List<Edge> edges;
     private Robber robber;
 
-    /**
-     * Optional: adjacency data for future resource distribution.
-     * Maps each Hex to its 6 corner intersections.
-     */
-    private Map<Hex, List<Intersection>> hexCorners;
+    // Occupancy tracking (recommended for validation + resource distribution later)
+    private final Map<Intersection, Settlement> settlementByIntersection = new HashMap<>();
+    private final Map<Intersection, City> cityByIntersection = new HashMap<>();
+    private final Map<String, Road> roadByEdgeKey = new HashMap<>();
 
-    // Quantization tolerance for matching shared corners across neighboring hexes.
+    // Helpful adjacency indexes
+    private final Map<Intersection, List<Edge>> edgesTouchingIntersection = new HashMap<>();
+    private final Map<Intersection, List<Intersection>> adjacentIntersections = new HashMap<>();
+
+    // Optional (future): Hex -> 6 corner intersections, used for resource payout
+    private final Map<Hex, List<Intersection>> hexCorners = new HashMap<>();
+
+    // Quantization to keep shared corners identical.
     private static final double EPS = 1e-6;
 
+    /**
+     * Constructs a new game board.
+     */
     public Board() {
         hexes = new ArrayList<>();
         intersections = new ArrayList<>();
         edges = new ArrayList<>();
-        hexCorners = new HashMap<>();
     }
 
+    /**
+     * Initializes the game board with hexes, intersections, edges, and the robber.
+     */
     public void initializeBoard() {
         hexes.clear();
         intersections.clear();
@@ -44,8 +57,15 @@ public class Board {
         hexCorners.clear();
         robber = null;
 
+        settlementByIntersection.clear();
+        cityByIntersection.clear();
+        roadByEdgeKey.clear();
+        edgesTouchingIntersection.clear();
+        adjacentIntersections.clear();
+
         initializeHexes();
         initializeIntersectionsAndEdgesFromHexLayout();
+        indexAdjacency();
         initializeRobber();
     }
 
@@ -54,7 +74,7 @@ public class Board {
      * (Resource/number assignment can be randomized later.)
      */
     private void initializeHexes() {
-        // 19 hexes, including one desert tile
+        // Add 19 hexes, including one desert tile
         hexes.add(new Hex(Resource.DESERT, 0));
         hexes.add(new Hex(Resource.WOOD, 8));
         hexes.add(new Hex(Resource.WOOD, 4));
@@ -78,31 +98,19 @@ public class Board {
 
     /**
      * Generates intersections and edges from a standard 3-4-5-4-3 hex layout.
-     *
-     * Approach:
-     * 1) Place 19 hex centers using axial coordinates (q,r) in rows: 3,4,5,4,3
-     * 2) Convert each hex center to 2D "pixel" coords (pointy-top)
-     * 3) Compute 6 corner points for each hex
-     * 4) Quantize corner points so shared corners become the same Intersection object
-     * 5) Add edges around each hex, deduped globally
      */
     private void initializeIntersectionsAndEdgesFromHexLayout() {
-        // Map quantized corner-key -> Intersection (so neighboring hexes share the same corners)
         Map<String, Intersection> cornerToIntersection = new HashMap<>();
-
-        // Deduplicate edges globally
         Set<String> edgeKeys = new HashSet<>();
 
-        // Axial coordinates for classic 3-4-5-4-3 layout (pointy-top)
         List<int[]> axialHexes = getStandardAxialHexCoordinates();
+        if (axialHexes.size() != hexes.size()) {
+            throw new IllegalStateException("Hex coordinate count mismatch: " + axialHexes.size() + " vs " + hexes.size());
+        }
 
-        // Corner angles for pointy-top hexes (Red Blob Games convention)
-        // angle = 60*i - 30 degrees
         for (int i = 0; i < axialHexes.size(); i++) {
             int q = axialHexes.get(i)[0];
             int r = axialHexes.get(i)[1];
-
-            // Keep 1-to-1 with your hex list order:
             Hex hex = hexes.get(i);
 
             double[] center = axialToPixel(q, r);
@@ -114,27 +122,23 @@ public class Board {
                 double py = center[1] + Math.sin(angleRad);
 
                 String key = quantizedKey(px, py);
-
                 Intersection corner = cornerToIntersection.get(key);
                 if (corner == null) {
-                    // Store quantized integer coords inside Intersection (stable equality)
+                    // Store quantized integer coords for stable equality/hc
                     int ix = quantizeToInt(px);
                     int iy = quantizeToInt(py);
                     corner = new Intersection(ix, iy);
                     cornerToIntersection.put(key, corner);
                 }
-
                 corners.add(corner);
             }
 
-            // Save for future: resource distribution & robber blocking logic
             hexCorners.put(hex, corners);
 
-            // Add 6 perimeter edges around this hex (deduped)
+            // Add 6 perimeter edges around the hex, globally deduped
             for (int c = 0; c < 6; c++) {
                 Intersection a = corners.get(c);
                 Intersection b = corners.get((c + 1) % 6);
-
                 String eKey = edgeKey(a, b);
                 if (edgeKeys.add(eKey)) {
                     edges.add(new Edge(a, b));
@@ -144,7 +148,7 @@ public class Board {
 
         intersections.addAll(cornerToIntersection.values());
 
-        // Safety check: classic Catan should land here
+        // Classic Catan sanity checks
         if (hexes.size() != 19) {
             throw new IllegalStateException("Expected 19 hexes, got " + hexes.size());
         }
@@ -156,11 +160,27 @@ public class Board {
         }
     }
 
+    private void indexAdjacency() {
+        for (Intersection i : intersections) {
+            edgesTouchingIntersection.put(i, new ArrayList<>());
+            adjacentIntersections.put(i, new ArrayList<>());
+        }
+
+        for (Edge e : edges) {
+            Intersection a = e.getStart();
+            Intersection b = e.getEnd();
+
+            edgesTouchingIntersection.get(a).add(e);
+            edgesTouchingIntersection.get(b).add(e);
+
+            adjacentIntersections.get(a).add(b);
+            adjacentIntersections.get(b).add(a);
+        }
+    }
+
     /**
-     * Returns axial coordinates (q,r) for the 19-hex classic layout:
-     * rows: 3,4,5,4,3 (pointy-top axial)
-     *
-     * This ordering intentionally matches the index order 0..18 so it lines up with your hex list.
+     * Standard axial coordinates for the 19-hex classic layout (rows 3-4-5-4-3).
+     * Ordering aligns with hex list index 0..18.
      */
     private List<int[]> getStandardAxialHexCoordinates() {
         List<int[]> coords = new ArrayList<>(19);
@@ -198,11 +218,7 @@ public class Board {
     }
 
     /**
-     * Converts axial hex coordinates (q,r) to 2D coordinates for pointy-top hexes.
-     * size = 1.0
-     *
-     * x = sqrt(3) * (q + r/2)
-     * y = 3/2 * r
+     * Converts axial (q,r) to 2D coordinates for pointy-top hexes with size 1.
      */
     private double[] axialToPixel(int q, int r) {
         double x = Math.sqrt(3.0) * (q + r / 2.0);
@@ -217,17 +233,16 @@ public class Board {
     }
 
     private int quantizeToInt(double v) {
-        // Store the quantized integer "grid coordinate" so equals/hashCode work reliably.
+        // store fixed-point integer coordinates
         return (int) Math.round(v / EPS);
     }
 
     private String edgeKey(Intersection a, Intersection b) {
-        // Order endpoints so A-B and B-A dedupe correctly
+        // Order endpoints so A-B and B-A share the same key
         if (compare(a, b) <= 0) {
             return a.getX() + ":" + a.getY() + "|" + b.getX() + ":" + b.getY();
-        } else {
-            return b.getX() + ":" + b.getY() + "|" + a.getX() + ":" + a.getY();
         }
+        return b.getX() + ":" + b.getY() + "|" + a.getX() + ":" + a.getY();
     }
 
     private int compare(Intersection a, Intersection b) {
@@ -235,6 +250,9 @@ public class Board {
         return Integer.compare(a.getY(), b.getY());
     }
 
+    /**
+     * Initializes the robber on the desert hex.
+     */
     private void initializeRobber() {
         for (Hex hex : hexes) {
             if (hex.getResource() == Resource.DESERT) {
@@ -243,6 +261,59 @@ public class Board {
             }
         }
     }
+
+    // ---------- Occupancy / placement helpers ----------
+
+    public boolean isIntersectionOccupied(Intersection intersection) {
+        return settlementByIntersection.containsKey(intersection) || cityByIntersection.containsKey(intersection);
+    }
+
+    public Settlement getSettlementAt(Intersection intersection) {
+        return settlementByIntersection.get(intersection);
+    }
+
+    public City getCityAt(Intersection intersection) {
+        return cityByIntersection.get(intersection);
+    }
+
+    public void placeSettlement(Settlement settlement) {
+        if (settlement == null) throw new IllegalArgumentException("Settlement cannot be null.");
+        Intersection loc = settlement.getLocation();
+        if (isIntersectionOccupied(loc)) {
+            throw new IllegalArgumentException("Intersection already occupied.");
+        }
+        settlementByIntersection.put(loc, settlement);
+    }
+
+    public boolean isEdgeOccupied(Edge edge) {
+        return roadByEdgeKey.containsKey(edgeKey(edge.getStart(), edge.getEnd()));
+    }
+
+    public Road getRoadAt(Edge edge) {
+        return roadByEdgeKey.get(edgeKey(edge.getStart(), edge.getEnd()));
+    }
+
+    public void placeRoad(Road road) {
+        if (road == null) throw new IllegalArgumentException("Road cannot be null.");
+        Edge e = road.getEdge();
+        String key = edgeKey(e.getStart(), e.getEnd());
+        if (roadByEdgeKey.containsKey(key)) {
+            throw new IllegalArgumentException("Edge already has a road.");
+        }
+        roadByEdgeKey.put(key, road);
+    }
+
+    // ---------- Adjacency helpers (for Validator) ----------
+
+    public List<Edge> getEdgesTouching(Intersection intersection) {
+        return edgesTouchingIntersection.getOrDefault(intersection, Collections.emptyList());
+    }
+
+    public List<Intersection> getAdjacentIntersections(Intersection intersection) {
+        return adjacentIntersections.getOrDefault(intersection, Collections.emptyList());
+    }
+
+    // ---------- Getters ----------
 
     public List<Hex> getHexes() {
         return hexes;
@@ -260,10 +331,6 @@ public class Board {
         return robber;
     }
 
-    /**
-     * Optional helper for later: which intersections touch a given hex.
-     * Useful for "roll -> distribute resources".
-     */
     public List<Intersection> getCornersForHex(Hex hex) {
         return hexCorners.getOrDefault(hex, Collections.emptyList());
     }
