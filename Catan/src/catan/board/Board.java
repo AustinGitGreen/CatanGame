@@ -28,6 +28,11 @@ public class Board {
      * Initializes the game board with hexes, intersections, edges, and the robber.
      */
     public void initializeBoard() {
+        hexes.clear();
+        intersections.clear();
+        edges.clear();
+        robber = null;
+
         initializeHexes();
         initializeIntersections();
         initializeEdges();
@@ -64,7 +69,7 @@ public class Board {
      * Initializes the intersections on the board.
      */
     private void initializeIntersections() {
-        // Example: Add 54 intersections
+        // Add 54 intersections
         for (int i = 0; i < 54; i++) {
             intersections.add(new Intersection(i / 10, i % 10));
         }
@@ -74,64 +79,27 @@ public class Board {
      * Initializes the edges on the board.
      */
     private void initializeEdges() {
-        // Add edges between intersections within the hexes
+        // Chain connectivity across all intersections.
         for (int i = 0; i < intersections.size() - 1; i++) {
             edges.add(new Edge(intersections.get(i), intersections.get(i + 1)));
         }
 
-        // Add edges for the outside perimeter
-        addOutsideEdges();
-    }
-    
-    private void addOutsideEdges() {
-        // Example: Logic to add edges for the perimeter
-        // Adjust logic based on the structure of your intersections
-        for (int i = 0; i < intersections.size(); i++) {
-            // Connect each perimeter intersection to its next neighbor
-            // Assuming you have logic to identify perimeter intersections
-            Intersection start = intersections.get(i);
-            Intersection end = getNextPerimeterIntersection(start); // Define this helper method
-            if (end != null) {
-                edges.add(new Edge(start, end));
-            }
-        }
-    }
-    
-    /**
-     * Gets the next perimeter intersection for the given intersection.
-     * This method assumes the board is structured in a hexagonal layout.
-     * @param intersection The current intersection.
-     * @return The next perimeter intersection, or null if not applicable.
-     */
-    private Intersection getNextPerimeterIntersection(Intersection intersection) {
-        // Determine the coordinates of the next perimeter intersection
-        int x = intersection.getX();
-        int y = intersection.getY();
-
-        int nextX = x;
-        int nextY = y;
-
-        // Adjust logic based on the board layout
-        if (x == 0 && y < 5) {
-            nextY = y + 1; // Move right along the top row
-        } else if (y == 5 && x < 5) {
-            nextX = x + 1; // Move down along the right column
-        } else if (x == 5 && y > 0) {
-            nextY = y - 1; // Move left along the bottom row
-        } else if (y == 0 && x > 0) {
-            nextX = x - 1; // Move up along the left column
-        } else {
-            return null; // Not on the perimeter
+        // Close full rows (0-9, 10-19, 20-29, 30-39, 40-49).
+        for (int row = 0; row < 5; row++) {
+            int rowStart = row * 10;
+            int rowEnd = rowStart + 9;
+            edges.add(new Edge(intersections.get(rowStart), intersections.get(rowEnd)));
         }
 
-        // Find and return the existing intersection with these coordinates
-        for (Intersection i : intersections) {
-            if (i.getX() == nextX && i.getY() == nextY) {
-                return i;
-            }
+        // Connect the first two rows vertically (0-9 to 10-19).
+        for (int col = 0; col < 10; col++) {
+            edges.add(new Edge(intersections.get(col), intersections.get(10 + col)));
         }
 
-        return null; // No matching intersection found
+        // Connect the bottom short row vertically (40-43 to 50-53).
+        for (int col = 0; col < 4; col++) {
+            edges.add(new Edge(intersections.get(40 + col), intersections.get(50 + col)));
+        }
     }
 
     /**
