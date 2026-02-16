@@ -8,6 +8,10 @@ import catan.components.Settlement;
 import catan.players.Player;
 import catan.resources.ResourcePool;
 import catan.utils.Validator;
+import catan.resources.Resource;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Map;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +37,12 @@ public class Game {
     private boolean setupForward = true; // forward in round 1, reverse in round 2
     private int setupRound = 0; // 0 = first pass, 1 = second pass
     private Intersection pendingSetupRoadAnchor = null; // settlement just placed; next road must touch this
+    
+    private static final Map<Resource, Integer> ROAD_COST =
+            cost(Resource.WOOD, 1, Resource.BRICK, 1);
+
+    private static final Map<Resource, Integer> SETTLEMENT_COST =
+            cost(Resource.WOOD, 1, Resource.BRICK, 1, Resource.WHEAT, 1, Resource.SHEEP, 1);
 
     /**
      * Initializes the game with the specified number of players.
@@ -148,7 +158,13 @@ public class Game {
      */
     public Settlement buildSettlement(Player player, int intersectionIndex) {
         ensureNormalPhase("buildSettlement");
-        return placeSettlementInternal(player, intersectionIndex, false);
+        payCostToBank(player, SETTLEMENT_COST);
+        try {
+            return placeSettlementInternal(player, intersectionIndex, false);
+        } catch (RuntimeException ex) {
+            refundFromBank(player, SETTLEMENT_COST);
+            throw ex;
+        }
     }
 
     /**
@@ -156,7 +172,13 @@ public class Game {
      */
     public Road buildRoad(Player player, int edgeIndex) {
         ensureNormalPhase("buildRoad");
-        return placeRoadInternal(player, edgeIndex, false);
+        payCostToBank(player, ROAD_COST);
+        try {
+            return placeRoadInternal(player, edgeIndex, false);
+        } catch (RuntimeException ex) {
+            refundFromBank(player, ROAD_COST);
+            throw ex;
+        }
     }
 
     /**
@@ -169,6 +191,11 @@ public class Game {
         }
 
         Settlement s = placeSettlementInternal(player, intersectionIndex, true);
+
+        if (setupRound == 1) {
+            grantStartingResourcesFromSecondSettlement(s);
+        }
+
         pendingSetupRoadAnchor = s.getLocation();
         setupStep = SetupStep.PLACE_ROAD;
         return s;
@@ -194,6 +221,91 @@ public class Game {
         advanceSetupTurnOrderAfterRoad();
         return r;
     }
+    
+    public String distributeResourcesForRoll(int roll) {
+        ensureNormalPhase("distributeResourcesForRoll");
+
+        if (roll == 7) {
+            return "Rolled 7: robber/discard/steal not implemented yet (no resources distributed).";
+        }
+
+        Map<Player, Map<Resource, Integer>> requested = new HashMap<>();
+        Map<Resource, Integer> totalsByResource = new EnumMap<>(Resource.class);
+
+        for (catan.board.Hex hex : board.getHexes()) {
+            if (hex.getNumberToken() != roll) continue;
+            Resource res = hex.getResource();
+            if (res == null) continue;
+            if (res.name().equalsIgnoreCase("DESERT")) continue;
+
+            for (Intersection corner : board.getCornersForHex(hex)) {
+                catan.components.City city = board.getCityAt(corner);
+                if (city != null) {
+                    Player owner = city.getOwner();
+                    requested.computeIfAbsent(owner, k -> new EnumMap<>(Resource.class))
+                            .merge(res, 2, Integer::sum);
+                    totalsByResource.merge(res, 2, Integer::sum);
+                    continue;
+                }
+
+                Settlement settlement = board.getSettlementAt(corner);
+                if (settlement != null) {
+                    Player owner = settlement.getOwner();
+                    requested.computeIfAbsent(owner, k -> new EnumMap<>(Resource.class))
+                            .merge(res, 1, Integer::sum);
+                    totalsByResource.merge(res, 1, Integer::sum);
+                }
+            }
+        }
+
+        if (requested.isEmpty()) {
+            return "No settlements/cities produced resources on " + roll + ".";
+        }
+
+        // Bank shortage rule: if bank can't cover a resource fully, nobody gets that resource
+        for (Map.Entry<Resource, Integer> e : totalsByResource.entrySet()) {
+            Resource res = e.getKey();
+            int needed = e.getValue();
+            if (!resourcePool.hasEnoughResource(res, needed)) {
+                for (Map<Resource, Integer> m : requested.values()) {
+                    m.remove(res);
+                }
+            }
+        }
+
+        StringBuilder report = new StringBuilder();
+        report.append("Resource distribution for roll ").append(roll).append(":\n");
+        boolean any = false;
+
+        for (Map.Entry<Player, Map<Resource, Integer>> pe : requested.entrySet()) {
+            Player p = pe.getKey();
+            Map<Resource, Integer> give = pe.getValue();
+            if (give.isEmpty()) continue;
+
+            any = true;
+            report.append("- ").append(p.getName()).append(" gets ");
+            boolean first = true;
+
+            for (Map.Entry<Resource, Integer> re : give.entrySet()) {
+                Resource res = re.getKey();
+                int amt = re.getValue();
+                if (!first) report.append(", ");
+                report.append(amt).append(" ").append(res);
+                first = false;
+
+                resourcePool.removeResource(res, amt);
+                p.getInventory().addResource(res, amt);
+            }
+            report.append(".\n");
+        }
+
+        if (!any) {
+            return "Bank could not cover payouts for this roll (no resources distributed).";
+        }
+
+        return report.toString();
+    }
+
 
     private Settlement placeSettlementInternal(Player player, int intersectionIndex, boolean isSetup) {
         if (player == null) throw new IllegalArgumentException("Player cannot be null.");
@@ -298,6 +410,45 @@ public class Game {
             }
         }
         return null;
+    }
+    
+    private static Map<Resource, Integer> cost(Object... kv) {
+        Map<Resource, Integer> m = new EnumMap<>(Resource.class);
+        for (int i = 0; i < kv.length; i += 2) {
+            Resource r = (Resource) kv[i];
+            int v = (Integer) kv[i + 1];
+            m.put(r, v);
+        }
+        return m;
+    }
+
+    private void payCostToBank(Player player, Map<Resource, Integer> cost) {
+        if (!player.getInventory().hasEnoughResources(cost)) {
+            throw new IllegalArgumentException("Not enough resources to build.");
+        }
+        player.getInventory().removeResources(cost);
+        resourcePool.addResources(cost);
+    }
+
+    private void refundFromBank(Player player, Map<Resource, Integer> cost) {
+        resourcePool.removeResources(cost);
+        player.getInventory().addResources(cost);
+    }
+
+    private void grantStartingResourcesFromSecondSettlement(Settlement settlement) {
+        Intersection loc = settlement.getLocation();
+        Player owner = settlement.getOwner();
+
+        for (catan.board.Hex hex : board.getHexesTouchingIntersection(loc)) {
+            Resource res = hex.getResource();
+            if (res == null) continue;
+            if (res.name().equalsIgnoreCase("DESERT")) continue;
+
+            if (resourcePool.hasEnoughResource(res, 1)) {
+                resourcePool.removeResource(res, 1);
+                owner.getInventory().addResource(res, 1);
+            }
+        }
     }
 
     /**

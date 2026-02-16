@@ -27,6 +27,7 @@ public class Board {
     private final Map<Intersection, Settlement> settlementByIntersection = new HashMap<>();
     private final Map<Intersection, City> cityByIntersection = new HashMap<>();
     private final Map<String, Road> roadByEdgeKey = new HashMap<>();
+    private final Map<Intersection, List<Hex>> hexesTouchingIntersection = new HashMap<>();
 
     // Helpful adjacency indexes
     private final Map<Intersection, List<Edge>> edgesTouchingIntersection = new HashMap<>();
@@ -62,6 +63,7 @@ public class Board {
         roadByEdgeKey.clear();
         edgesTouchingIntersection.clear();
         adjacentIntersections.clear();
+        hexesTouchingIntersection.clear();
 
         initializeHexes();
         initializeIntersectionsAndEdgesFromHexLayout();
@@ -134,6 +136,9 @@ public class Board {
             }
 
             hexCorners.put(hex, corners);
+            
+            for (Intersection corner : corners) {
+                hexesTouchingIntersection.computeIfAbsent(corner, k -> new ArrayList<>()).add(hex);
 
             // Add 6 perimeter edges around the hex, globally deduped
             for (int c = 0; c < 6; c++) {
@@ -176,6 +181,10 @@ public class Board {
             adjacentIntersections.get(a).add(b);
             adjacentIntersections.get(b).add(a);
         }
+    }
+    
+    public List<Hex> getHexesTouchingIntersection(Intersection intersection) {
+        return hexesTouchingIntersection.getOrDefault(intersection, Collections.emptyList());
     }
 
     /**
@@ -334,4 +343,6 @@ public class Board {
     public List<Intersection> getCornersForHex(Hex hex) {
         return hexCorners.getOrDefault(hex, Collections.emptyList());
     }
+    
+    
 }
