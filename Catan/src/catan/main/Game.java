@@ -3,6 +3,7 @@ package catan.main;
 import catan.board.Board;
 import catan.board.Edge;
 import catan.board.Intersection;
+import catan.components.City;
 import catan.components.Road;
 import catan.components.Settlement;
 import catan.players.Player;
@@ -42,6 +43,7 @@ public class Game {
 
     private static final Map<Resource, Integer> ROAD_COST = cost(Resource.WOOD, 1, Resource.BRICK, 1);
     private static final Map<Resource, Integer> SETTLEMENT_COST = cost(Resource.WOOD, 1, Resource.BRICK, 1, Resource.WHEAT, 1, Resource.SHEEP, 1);
+    private static final Map<Resource, Integer> CITY_COST = cost(Resource.ORE, 3, Resource.WHEAT, 2);
 
     private final Random rng = new Random();
 
@@ -82,6 +84,7 @@ public class Game {
     public Intersection getPendingSetupRoadAnchor() { return pendingSetupRoadAnchor; }
 
     public Settlement getSettlementAt(Intersection intersection) { return board.getSettlementAt(intersection); }
+    public City getCityAt(Intersection intersection) { return board.getCityAt(intersection); }
     public Road getRoadAt(Edge edge) { return board.getRoadAt(edge); }
 
     public void endTurn() {
@@ -94,6 +97,7 @@ public class Game {
 
     public Settlement buildSettlement(Player player, int intersectionIndex) {
         ensureNormalPhase("buildSettlement");
+        ensureCurrentPlayer(player, "buildSettlement");
         payCostToBank(player, SETTLEMENT_COST);
         try {
             return placeSettlementInternal(player, intersectionIndex, false);
@@ -105,6 +109,7 @@ public class Game {
 
     public Road buildRoad(Player player, int edgeIndex) {
         ensureNormalPhase("buildRoad");
+        ensureCurrentPlayer(player, "buildRoad");
         payCostToBank(player, ROAD_COST);
         try {
             return placeRoadInternal(player, edgeIndex, false);
@@ -114,8 +119,21 @@ public class Game {
         }
     }
 
+    public City buildCity(Player player, int intersectionIndex) {
+        ensureNormalPhase("buildCity");
+        ensureCurrentPlayer(player, "buildCity");
+        payCostToBank(player, CITY_COST);
+        try {
+            return upgradeSettlementToCityInternal(player, intersectionIndex);
+        } catch (RuntimeException ex) {
+            refundFromBank(player, CITY_COST);
+            throw ex;
+        }
+    }
+
     public Settlement placeSetupSettlement(Player player, int intersectionIndex) {
         ensureSetupPhase("placeSetupSettlement");
+        ensureCurrentPlayer(player, "placeSetupSettlement");
         if (setupStep != SetupStep.PLACE_SETTLEMENT) {
             throw new IllegalStateException("Setup step is " + setupStep + ", expected PLACE_SETTLEMENT.");
         }
@@ -133,6 +151,7 @@ public class Game {
 
     public Road placeSetupRoad(Player player, int edgeIndex) {
         ensureSetupPhase("placeSetupRoad");
+        ensureCurrentPlayer(player, "placeSetupRoad");
         if (setupStep != SetupStep.PLACE_ROAD) {
             throw new IllegalStateException("Setup step is " + setupStep + ", expected PLACE_ROAD.");
         }
@@ -337,6 +356,22 @@ public class Game {
         return s;
     }
     
+    private City upgradeSettlementToCityInternal(Player player, int intersectionIndex) {
+        if (player == null) throw new IllegalArgumentException("Player cannot be null.");
+        List<Intersection> ints = board.getIntersections();
+        if (intersectionIndex < 0 || intersectionIndex >= ints.size()) throw new IllegalArgumentException("Intersection index out of range.");
+
+        Intersection loc = ints.get(intersectionIndex);
+        Settlement settlement = board.getSettlementAt(loc);
+        if (settlement == null) throw new IllegalArgumentException("No settlement exists at this intersection.");
+        if (settlement.getOwner() != player) throw new IllegalArgumentException("You can only upgrade your own settlement.");
+
+        City city = new City(player, loc);
+        board.upgradeSettlementToCity(city);
+        player.upgradeSettlementToCity(settlement, city);
+        return city;
+    }
+
     public List<Integer> getValidSettlementPlacements(Player player, boolean isSetup) {
         List<Integer> valid = new ArrayList<>();
         List<Intersection> ints = board.getIntersections();
@@ -348,6 +383,21 @@ public class Game {
         return valid;
     }
     
+    public List<Integer> getValidCityPlacements(Player player) {
+        List<Integer> valid = new ArrayList<>();
+        if (player == null) return valid;
+
+        List<Intersection> ints = board.getIntersections();
+        for (int i = 0; i < ints.size(); i++) {
+            Intersection intersection = ints.get(i);
+            Settlement settlement = board.getSettlementAt(intersection);
+            if (settlement != null && settlement.getOwner() == player) {
+                valid.add(i);
+            }
+        }
+        return valid;
+    }
+
     public List<Integer> getValidRoadPlacements(Player player, boolean isSetup) {
         List<Integer> valid = new ArrayList<>();
         List<Edge> es = board.getEdges();
@@ -396,6 +446,14 @@ public class Game {
 
     private void ensureNormalPhase(String action) {
         if (phase != GamePhase.NORMAL) throw new IllegalStateException(action + " is only allowed during NORMAL phase.");
+    }
+
+    private void ensureCurrentPlayer(Player player, String action) {
+        if (player == null) throw new IllegalArgumentException("Player cannot be null.");
+        if (turnManager == null) throw new IllegalStateException("Game has not been initialized.");
+        if (player != turnManager.getCurrentPlayer()) {
+            throw new IllegalStateException(action + " can only be performed by the current player.");
+        }
     }
 
     private void advanceSetupTurnOrderAfterRoad() {

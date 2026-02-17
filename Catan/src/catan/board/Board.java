@@ -283,6 +283,23 @@ public class Board {
         settlementByIntersection.put(loc, settlement);
     }
 
+    public void upgradeSettlementToCity(City city) {
+        if (city == null) throw new IllegalArgumentException("City cannot be null.");
+
+        Intersection loc = city.getLocation();
+        Settlement existing = settlementByIntersection.get(loc);
+        if (existing == null) throw new IllegalArgumentException("No settlement exists at this intersection.");
+        if (existing.getOwner() != city.getOwner()) {
+            throw new IllegalArgumentException("Cannot upgrade another player's settlement.");
+        }
+        if (cityByIntersection.containsKey(loc)) {
+            throw new IllegalArgumentException("Intersection already has a city.");
+        }
+
+        settlementByIntersection.remove(loc);
+        cityByIntersection.put(loc, city);
+    }
+
     public boolean isEdgeOccupied(Edge edge) {
         return roadByEdgeKey.containsKey(edgeKey(edge.getStart(), edge.getEnd()));
     }
