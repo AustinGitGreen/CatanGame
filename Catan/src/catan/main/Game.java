@@ -84,6 +84,7 @@ public class Game {
     public Intersection getPendingSetupRoadAnchor() { return pendingSetupRoadAnchor; }
 
     public Settlement getSettlementAt(Intersection intersection) { return board.getSettlementAt(intersection); }
+    public City getCityAt(Intersection intersection) { return board.getCityAt(intersection); }
     public Road getRoadAt(Edge edge) { return board.getRoadAt(edge); }
 
     public void endTurn() {
@@ -96,6 +97,7 @@ public class Game {
 
     public Settlement buildSettlement(Player player, int intersectionIndex) {
         ensureNormalPhase("buildSettlement");
+        ensureCurrentPlayer(player, "buildSettlement");
         payCostToBank(player, SETTLEMENT_COST);
         try {
             return placeSettlementInternal(player, intersectionIndex, false);
@@ -107,6 +109,7 @@ public class Game {
 
     public Road buildRoad(Player player, int edgeIndex) {
         ensureNormalPhase("buildRoad");
+        ensureCurrentPlayer(player, "buildRoad");
         payCostToBank(player, ROAD_COST);
         try {
             return placeRoadInternal(player, edgeIndex, false);
@@ -129,6 +132,7 @@ public class Game {
 
     public Settlement placeSetupSettlement(Player player, int intersectionIndex) {
         ensureSetupPhase("placeSetupSettlement");
+        ensureCurrentPlayer(player, "placeSetupSettlement");
         if (setupStep != SetupStep.PLACE_SETTLEMENT) {
             throw new IllegalStateException("Setup step is " + setupStep + ", expected PLACE_SETTLEMENT.");
         }
@@ -146,6 +150,7 @@ public class Game {
 
     public Road placeSetupRoad(Player player, int edgeIndex) {
         ensureSetupPhase("placeSetupRoad");
+        ensureCurrentPlayer(player, "placeSetupRoad");
         if (setupStep != SetupStep.PLACE_ROAD) {
             throw new IllegalStateException("Setup step is " + setupStep + ", expected PLACE_ROAD.");
         }
@@ -440,6 +445,14 @@ public class Game {
 
     private void ensureNormalPhase(String action) {
         if (phase != GamePhase.NORMAL) throw new IllegalStateException(action + " is only allowed during NORMAL phase.");
+    }
+
+    private void ensureCurrentPlayer(Player player, String action) {
+        if (player == null) throw new IllegalArgumentException("Player cannot be null.");
+        if (turnManager == null) throw new IllegalStateException("Game has not been initialized.");
+        if (player != turnManager.getCurrentPlayer()) {
+            throw new IllegalStateException(action + " can only be performed by the current player.");
+        }
     }
 
     private void advanceSetupTurnOrderAfterRoad() {
