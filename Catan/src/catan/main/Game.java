@@ -3,6 +3,7 @@ package catan.main;
 import catan.board.Board;
 import catan.board.Edge;
 import catan.board.Intersection;
+import catan.components.City;
 import catan.components.Road;
 import catan.components.Settlement;
 import catan.players.Player;
@@ -42,6 +43,7 @@ public class Game {
 
     private static final Map<Resource, Integer> ROAD_COST = cost(Resource.WOOD, 1, Resource.BRICK, 1);
     private static final Map<Resource, Integer> SETTLEMENT_COST = cost(Resource.WOOD, 1, Resource.BRICK, 1, Resource.WHEAT, 1, Resource.SHEEP, 1);
+    private static final Map<Resource, Integer> CITY_COST = cost(Resource.ORE, 3, Resource.WHEAT, 2);
 
     private final Random rng = new Random();
 
@@ -110,6 +112,17 @@ public class Game {
             return placeRoadInternal(player, edgeIndex, false);
         } catch (RuntimeException ex) {
             refundFromBank(player, ROAD_COST);
+            throw ex;
+        }
+    }
+
+    public City buildCity(Player player, int intersectionIndex) {
+        ensureNormalPhase("buildCity");
+        payCostToBank(player, CITY_COST);
+        try {
+            return upgradeSettlementToCityInternal(player, intersectionIndex);
+        } catch (RuntimeException ex) {
+            refundFromBank(player, CITY_COST);
             throw ex;
         }
     }
@@ -337,6 +350,22 @@ public class Game {
         return s;
     }
     
+    private City upgradeSettlementToCityInternal(Player player, int intersectionIndex) {
+        if (player == null) throw new IllegalArgumentException("Player cannot be null.");
+        List<Intersection> ints = board.getIntersections();
+        if (intersectionIndex < 0 || intersectionIndex >= ints.size()) throw new IllegalArgumentException("Intersection index out of range.");
+
+        Intersection loc = ints.get(intersectionIndex);
+        Settlement settlement = board.getSettlementAt(loc);
+        if (settlement == null) throw new IllegalArgumentException("No settlement exists at this intersection.");
+        if (settlement.getOwner() != player) throw new IllegalArgumentException("You can only upgrade your own settlement.");
+
+        City city = new City(player, loc);
+        board.upgradeSettlementToCity(city);
+        player.upgradeSettlementToCity(settlement, city);
+        return city;
+    }
+
     public List<Integer> getValidSettlementPlacements(Player player, boolean isSetup) {
         List<Integer> valid = new ArrayList<>();
         List<Intersection> ints = board.getIntersections();
@@ -348,6 +377,21 @@ public class Game {
         return valid;
     }
     
+    public List<Integer> getValidCityPlacements(Player player) {
+        List<Integer> valid = new ArrayList<>();
+        if (player == null) return valid;
+
+        List<Intersection> ints = board.getIntersections();
+        for (int i = 0; i < ints.size(); i++) {
+            Intersection intersection = ints.get(i);
+            Settlement settlement = board.getSettlementAt(intersection);
+            if (settlement != null && settlement.getOwner() == player) {
+                valid.add(i);
+            }
+        }
+        return valid;
+    }
+
     public List<Integer> getValidRoadPlacements(Player player, boolean isSetup) {
         List<Integer> valid = new ArrayList<>();
         List<Edge> es = board.getEdges();
