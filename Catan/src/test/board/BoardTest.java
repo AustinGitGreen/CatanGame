@@ -8,6 +8,10 @@ import org.junit.Test;
 
 import catan.resources.Resource;
 import catan.board.Board;
+import catan.board.Intersection;
+import catan.components.City;
+import catan.components.Settlement;
+import catan.players.Player;
 
 public class BoardTest {
     private Board board;
@@ -44,4 +48,18 @@ public class BoardTest {
         assertNotNull("Robber should be initialized", board.getRobber());
         assertEquals("Robber should start on the desert tile", Resource.DESERT, board.getRobber().getCurrentHex().getResource());
     }
+    @Test
+    public void testUpgradeSettlementToCity() {
+        Player player = new Player("Alice");
+        Intersection intersection = board.getIntersections().get(0);
+        Settlement settlement = new Settlement(player, intersection);
+        board.placeSettlement(settlement);
+
+        City city = new City(player, intersection);
+        board.upgradeSettlementToCity(city);
+
+        assertEquals("Settlement should be removed after upgrade", null, board.getSettlementAt(intersection));
+        assertEquals("City should occupy the upgraded intersection", city, board.getCityAt(intersection));
+    }
+
 }

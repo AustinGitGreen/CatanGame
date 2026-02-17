@@ -219,30 +219,34 @@ public class ConsoleGameController {
                     break;
 
                 case 3:
-                    viewMyInfo(current);
+                    buildCityFlow(current);
                     break;
 
                 case 4:
-                    viewAllPlayers();
+                    viewMyInfo(current);
                     break;
 
                 case 5:
-                    listIntersectionsWithOccupancy();
+                    viewAllPlayers();
                     break;
 
                 case 6:
-                    listEdgesWithOccupancy();
+                    listIntersectionsWithOccupancy();
                     break;
 
                 case 7:
-                    viewBoardSummary();
+                    listEdgesWithOccupancy();
                     break;
 
                 case 8:
-                    viewValidMovesSummary(current);
+                    viewBoardSummary();
                     break;
 
                 case 9:
+                    viewValidMovesSummary(current);
+                    break;
+
+                case 10:
                     done = true;
                     break;
 
@@ -257,13 +261,14 @@ public class ConsoleGameController {
         System.out.println("\n--- Action Phase ---");
         System.out.println("1) Build Road (only valid options shown)");
         System.out.println("2) Build Settlement (only valid options shown)");
-        System.out.println("3) View My Info");
-        System.out.println("4) View All Players");
-        System.out.println("5) List Intersections");
-        System.out.println("6) List Edges");
-        System.out.println("7) Board Summary");
-        System.out.println("8) Show Valid Moves Summary");
-        System.out.println("9) End Turn");
+        System.out.println("3) Build City (upgrade one of your settlements)");
+        System.out.println("4) View My Info");
+        System.out.println("5) View All Players");
+        System.out.println("6) List Intersections");
+        System.out.println("7) List Edges");
+        System.out.println("8) Board Summary");
+        System.out.println("9) Show Valid Moves Summary");
+        System.out.println("10) End Turn");
     }
 
     private void buildRoadFlow(Player current) {
@@ -317,13 +322,41 @@ public class ConsoleGameController {
         }
     }
 
+    private void buildCityFlow(Player current) {
+        List<Integer> valid = game.getValidCityPlacements(current);
+        if (valid.isEmpty()) {
+            System.out.println("No valid city upgrades right now.");
+            return;
+        }
+
+        System.out.println("\nValid city upgrades:");
+        for (int k = 0; k < valid.size(); k++) {
+            int idx = valid.get(k);
+            Intersection in = game.getBoard().getIntersections().get(idx);
+            System.out.println(k + ") #" + idx + " (" + in.getX() + "," + in.getY() + ")");
+        }
+
+        int pick = promptInt("Choose option (0-" + (valid.size() - 1) + "): ", 0, valid.size() - 1);
+        int chosenIntersectionIndex = valid.get(pick);
+
+        try {
+            catan.components.City city = game.buildCity(current, chosenIntersectionIndex);
+            Intersection loc = city.getLocation();
+            System.out.println("✅ Built city at (" + loc.getX() + "," + loc.getY() + ")");
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            System.out.println("❌ Can't build city: " + ex.getMessage());
+        }
+    }
+
     private void viewValidMovesSummary(Player current) {
         List<Integer> roads = game.getValidRoadPlacements(current, false);
         List<Integer> settlements = game.getValidSettlementPlacements(current, false);
+        List<Integer> cities = game.getValidCityPlacements(current);
 
         System.out.println("\n--- Valid Moves Summary (" + current.getName() + ") ---");
         System.out.println("Valid roads: " + roads.size());
         System.out.println("Valid settlements: " + settlements.size());
+        System.out.println("Valid city upgrades: " + cities.size());
         System.out.println("Resources: " + current.getInventory());
     }
 
