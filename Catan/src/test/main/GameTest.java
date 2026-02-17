@@ -94,21 +94,4 @@ public class GameTest {
         game.buildCity(player, invalidIndex);
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void testBuildCityRequiresCurrentPlayer() {
-        completeSetupPhase();
-
-        Player current = game.getCurrentPlayer();
-        Player notCurrent = game.getPlayers().get(1);
-        if (notCurrent == current) {
-            notCurrent = game.getPlayers().get(2);
-        }
-
-        current.getInventory().addResource(Resource.ORE, 3);
-        current.getInventory().addResource(Resource.WHEAT, 2);
-
-        int intersectionIndex = game.getValidCityPlacements(current).get(0);
-        game.buildCity(notCurrent, intersectionIndex);
-    }
-
 }

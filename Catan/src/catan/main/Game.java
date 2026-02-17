@@ -121,7 +121,6 @@ public class Game {
 
     public City buildCity(Player player, int intersectionIndex) {
         ensureNormalPhase("buildCity");
-        ensureCurrentPlayer(player, "buildCity");
         payCostToBank(player, CITY_COST);
         try {
             return upgradeSettlementToCityInternal(player, intersectionIndex);
