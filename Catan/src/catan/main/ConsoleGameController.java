@@ -8,9 +8,9 @@ import catan.players.Player;
 import catan.resources.Resource;
 import catan.utils.Dice;
 
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.EnumMap;
 import java.util.Scanner;
 
 public class ConsoleGameController {
@@ -32,40 +32,168 @@ public class ConsoleGameController {
             Player current = game.getCurrentPlayer();
 
             if (game.isSetupPhase()) {
-                System.out.println("\n==============================");
-                System.out.println("SETUP PHASE | Round " + (game.getSetupRound() + 1));
-                System.out.println("Player: " + current.getName());
-                System.out.println("Step: " + game.getSetupStep());
-                System.out.println("==============================");
-
-                handleSetupPhase(current);
+                runSetupTurn(current);
                 continue;
             }
 
-            System.out.println("\n==============================");
-            System.out.println("Turn: " + current.getName());
-            System.out.println("Victory Points: " + current.getVictoryPoints());
-            System.out.println("==============================");
-
-            // 1) ROLL (mandatory)
-            int roll = handleRollPhase();
-            System.out.println("Rolled: " + roll);
-
-            if (roll == 7) {
-                handleRobberOnSeven(current);
-            } else {
-                System.out.println(game.distributeResourcesForRoll(roll));
-            }
-
-            // 2) ACTION PHASE
-            handleActionPhase(current);
-
-            // 3) END TURN
-            game.endTurn();
+            runNormalTurn(current);
         }
 
         Player winner = game.getWinningPlayer();
-        System.out.println("\n🎉 Winner: " + winner.getName() + " with " + winner.getVictoryPoints() + " VP!");
+        System.out.println("\nWinner: " + winner.getName() + " with " + winner.getVictoryPoints() + " VP!");
+    }
+
+    // =========================
+    // SETUP PHASE
+    // =========================
+
+    private void runSetupTurn(Player current) {
+        System.out.println("\n==============================");
+        System.out.println("SETUP PHASE | Round " + (game.getSetupRound() + 1));
+        System.out.println("Player: " + current.getName());
+        System.out.println("Step: " + game.getSetupStep());
+        System.out.println("==============================");
+
+        boolean done = false;
+        while (!done && game.isSetupPhase() && game.getCurrentPlayer() == current) {
+            printSetupMenu();
+            int choice = promptInt("Choose an option: ", 1, 6);
+
+            switch (choice) {
+                case 1:
+                    if (game.getSetupStep() == Game.SetupStep.PLACE_SETTLEMENT) {
+                        setupSettlementFlow(current);
+                    } else {
+                        setupRoadFlow(current);
+                        // after a setup road, the Game advances setup order; end this turn loop
+                        done = true;
+                    }
+                    break;
+
+                case 2:
+                    viewMyInfo(current);
+                    break;
+
+                case 3:
+                    viewAllPlayers();
+                    break;
+
+                case 4:
+                    listIntersectionsWithOccupancy();
+                    break;
+
+                case 5:
+                    listEdgesWithOccupancy();
+                    break;
+
+                case 6:
+                    viewBoardSummary();
+                    break;
+
+                default:
+                    System.out.println("Unknown option.");
+                    break;
+            }
+        }
+    }
+
+    private void printSetupMenu() {
+        System.out.println("\n--- Setup Menu ---");
+        if (game.getSetupStep() == Game.SetupStep.PLACE_SETTLEMENT) {
+            System.out.println("1) Place Settlement (only valid options shown)");
+        } else {
+            System.out.println("1) Place Road (must touch your just-placed settlement; only valid options shown)");
+        }
+        System.out.println("2) View My Info");
+        System.out.println("3) View All Players");
+        System.out.println("4) List Intersections");
+        System.out.println("5) List Edges");
+        System.out.println("6) Board Summary");
+    }
+
+    private void setupSettlementFlow(Player current) {
+        List<Integer> valid = game.getValidSettlementPlacements(current, true);
+
+        if (valid.isEmpty()) {
+            System.out.println("No valid settlement placements.");
+            return;
+        }
+
+        System.out.println("\nValid settlement placements:");
+        for (int k = 0; k < valid.size(); k++) {
+            int idx = valid.get(k);
+            Intersection in = game.getBoard().getIntersections().get(idx);
+            System.out.println(k + ") #" + idx + " (" + in.getX() + "," + in.getY() + ")");
+        }
+
+        int pick = promptInt("Choose option (0-" + (valid.size() - 1) + "): ", 0, valid.size() - 1);
+        int chosenIntersectionIndex = valid.get(pick);
+
+        try {
+            Settlement s = game.placeSetupSettlement(current, chosenIntersectionIndex);
+            Intersection loc = s.getLocation();
+            System.out.println("✅ Setup settlement placed at (" + loc.getX() + "," + loc.getY() + ")");
+            System.out.println("Next: place a road touching that settlement.");
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            System.out.println("❌ Can't place setup settlement: " + ex.getMessage());
+        }
+    }
+
+    private void setupRoadFlow(Player current) {
+        List<Integer> valid = game.getValidRoadPlacements(current, true);
+
+        if (valid.isEmpty()) {
+            System.out.println("No valid road placements (setup).");
+            return;
+        }
+
+        System.out.println("\nValid setup road placements:");
+        for (int k = 0; k < valid.size(); k++) {
+            int idx = valid.get(k);
+            Edge e = game.getBoard().getEdges().get(idx);
+            System.out.println(k + ") #" + idx + " " + formatEdge(e));
+        }
+
+        int pick = promptInt("Choose option (0-" + (valid.size() - 1) + "): ", 0, valid.size() - 1);
+        int chosenEdgeIndex = valid.get(pick);
+
+        try {
+            Road r = game.placeSetupRoad(current, chosenEdgeIndex);
+            System.out.println("✅ Setup road placed on edge " + formatEdge(r.getEdge()));
+
+            if (!game.isSetupPhase()) {
+                System.out.println("\n✅ Setup complete! Entering NORMAL play.");
+            }
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            System.out.println("❌ Can't place setup road: " + ex.getMessage());
+        }
+    }
+
+    // =========================
+    // NORMAL TURN
+    // =========================
+
+    private void runNormalTurn(Player current) {
+        System.out.println("\n==============================");
+        System.out.println("Turn: " + current.getName());
+        System.out.println("Victory Points: " + current.getVictoryPoints());
+        System.out.println("==============================");
+
+        // 1) ROLL
+        int roll = handleRollPhase();
+        System.out.println("Rolled: " + roll);
+
+        if (roll == 7) {
+            handleRobberOnSeven(current);
+        } else {
+            System.out.println(game.distributeResourcesForRoll(roll));
+        }
+
+        // 2) ACTION PHASE
+        handleActionPhase(current);
+
+        // 3) END TURN
+        game.endTurn();
     }
 
     private int handleRollPhase() {
@@ -74,145 +202,141 @@ public class ConsoleGameController {
         return dice.roll();
     }
 
-    // -------------------- SETUP --------------------
-
-    private void handleSetupPhase(Player current) {
-        boolean done = false;
-        while (!done && game.isSetupPhase() && game.getCurrentPlayer() == current) {
-            printSetupMenu();
-            int choice = promptInt("Choose an action: ", 1, 6);
-
-            switch (choice) {
-                case 1 : {
-                    if (game.getSetupStep() == Game.SetupStep.PLACE_SETTLEMENT) {
-                        done = setupSettlementFlow(current);
-                    } else {
-                        done = setupRoadFlow(current);
-                    }
-                }
-                case 2 : viewMyInfo(current);
-                case 3 : viewAllPlayers();
-                case 4 : listIntersections();
-                case 5 : listEdges();
-                case 6 : viewBoardSummary();
-                default : System.out.println("Unknown option.");
-            }
-        }
-    }
-
-    private void printSetupMenu() {
-        System.out.println("\n--- Setup Phase ---");
-        if (game.getSetupStep() == Game.SetupStep.PLACE_SETTLEMENT) {
-            System.out.println("1) Place Settlement (setup)");
-        } else {
-            System.out.println("1) Place Road (setup)");
-        }
-        System.out.println("2) View My Info");
-        System.out.println("3) View All Players (VP + counts)");
-        System.out.println("4) List Intersections");
-        System.out.println("5) List Edges");
-        System.out.println("6) View Board Summary");
-    }
-
-    private boolean setupSettlementFlow(Player current) {
-        listIntersections();
-        int idx = promptInt("Intersection index to place settlement on: ", 0, game.getBoard().getIntersections().size() - 1);
-
-        try {
-            Settlement settlement = game.placeSetupSettlement(current, idx);
-            Intersection loc = settlement.getLocation();
-            System.out.println("✅ (Setup) Built settlement for " + settlement.getOwner().getName()
-                    + " at (" + loc.getX() + "," + loc.getY() + ")");
-            System.out.println("Now place a road touching that settlement.");
-            return true;
-        } catch (IllegalArgumentException | IllegalStateException ex) {
-            System.out.println("❌ Can't place setup settlement: " + ex.getMessage());
-            return false;
-        }
-    }
-
-    private boolean setupRoadFlow(Player current) {
-        listEdges();
-        int idx = promptInt("Edge index to place road on: ", 0, game.getBoard().getEdges().size() - 1);
-
-        try {
-            Road road = game.placeSetupRoad(current, idx);
-            System.out.println("✅ (Setup) Built road for " + road.getOwner().getName() + " on edge " + formatEdge(road.getEdge()));
-            return true;
-        } catch (IllegalArgumentException | IllegalStateException ex) {
-            System.out.println("❌ Can't place setup road: " + ex.getMessage());
-            return false;
-        }
-    }
-
-    // -------------------- NORMAL ACTION PHASE --------------------
-
     private void handleActionPhase(Player current) {
         boolean done = false;
 
         while (!done) {
             printActionMenu();
-            int choice = promptInt("Choose an action: ", 1, 8);
+            int choice = promptInt("Choose an action: ", 1, 9);
 
             switch (choice) {
-                case 1 : buildRoadFlow(current);
-                case 2 : buildSettlementFlow(current);
-                case 3 : viewMyInfo(current);
-                case 4 : viewAllPlayers();
-                case 5 : listIntersections();
-                case 6 : listEdges();
-                case 7 : viewBoardSummary();
-                case 8 : done = true;
-                default : System.out.println("Unknown option.");
+                case 1:
+                    buildRoadFlow(current);
+                    break;
+
+                case 2:
+                    buildSettlementFlow(current);
+                    break;
+
+                case 3:
+                    viewMyInfo(current);
+                    break;
+
+                case 4:
+                    viewAllPlayers();
+                    break;
+
+                case 5:
+                    listIntersectionsWithOccupancy();
+                    break;
+
+                case 6:
+                    listEdgesWithOccupancy();
+                    break;
+
+                case 7:
+                    viewBoardSummary();
+                    break;
+
+                case 8:
+                    viewValidMovesSummary(current);
+                    break;
+
+                case 9:
+                    done = true;
+                    break;
+
+                default:
+                    System.out.println("Unknown option.");
+                    break;
             }
         }
     }
 
     private void printActionMenu() {
         System.out.println("\n--- Action Phase ---");
-        System.out.println("1) Build Road");
-        System.out.println("2) Build Settlement");
+        System.out.println("1) Build Road (only valid options shown)");
+        System.out.println("2) Build Settlement (only valid options shown)");
         System.out.println("3) View My Info");
-        System.out.println("4) View All Players (VP + counts)");
+        System.out.println("4) View All Players");
         System.out.println("5) List Intersections");
         System.out.println("6) List Edges");
-        System.out.println("7) View Board Summary");
-        System.out.println("8) End Turn");
+        System.out.println("7) Board Summary");
+        System.out.println("8) Show Valid Moves Summary");
+        System.out.println("9) End Turn");
     }
 
     private void buildRoadFlow(Player current) {
-        listEdges();
-        int idx = promptInt("Edge index to place road on: ", 0, game.getBoard().getEdges().size() - 1);
+        List<Integer> valid = game.getValidRoadPlacements(current, false);
+        if (valid.isEmpty()) {
+            System.out.println("No valid road placements right now.");
+            return;
+        }
+
+        System.out.println("\nValid road placements:");
+        for (int k = 0; k < valid.size(); k++) {
+            int idx = valid.get(k);
+            Edge e = game.getBoard().getEdges().get(idx);
+            System.out.println(k + ") #" + idx + " " + formatEdge(e));
+        }
+
+        int pick = promptInt("Choose option (0-" + (valid.size() - 1) + "): ", 0, valid.size() - 1);
+        int chosenEdgeIndex = valid.get(pick);
 
         try {
-            Road road = game.buildRoad(current, idx);
-            System.out.println("✅ Built road for " + road.getOwner().getName() + " on edge " + formatEdge(road.getEdge()));
+            Road road = game.buildRoad(current, chosenEdgeIndex);
+            System.out.println("✅ Built road on edge " + formatEdge(road.getEdge()));
         } catch (IllegalArgumentException | IllegalStateException ex) {
             System.out.println("❌ Can't build road: " + ex.getMessage());
         }
     }
 
     private void buildSettlementFlow(Player current) {
-        listIntersections();
-        int idx = promptInt("Intersection index to place settlement on: ", 0, game.getBoard().getIntersections().size() - 1);
+        List<Integer> valid = game.getValidSettlementPlacements(current, false);
+        if (valid.isEmpty()) {
+            System.out.println("No valid settlement placements right now.");
+            return;
+        }
+
+        System.out.println("\nValid settlement placements:");
+        for (int k = 0; k < valid.size(); k++) {
+            int idx = valid.get(k);
+            Intersection in = game.getBoard().getIntersections().get(idx);
+            System.out.println(k + ") #" + idx + " (" + in.getX() + "," + in.getY() + ")");
+        }
+
+        int pick = promptInt("Choose option (0-" + (valid.size() - 1) + "): ", 0, valid.size() - 1);
+        int chosenIntersectionIndex = valid.get(pick);
 
         try {
-            Settlement settlement = game.buildSettlement(current, idx);
+            Settlement settlement = game.buildSettlement(current, chosenIntersectionIndex);
             Intersection loc = settlement.getLocation();
-            System.out.println("✅ Built settlement for " + settlement.getOwner().getName()
-                    + " at (" + loc.getX() + "," + loc.getY() + ")");
+            System.out.println("✅ Built settlement at (" + loc.getX() + "," + loc.getY() + ")");
         } catch (IllegalArgumentException | IllegalStateException ex) {
             System.out.println("❌ Can't build settlement: " + ex.getMessage());
         }
     }
 
-    // -------------------- ROBBER (roll of 7) --------------------
+    private void viewValidMovesSummary(Player current) {
+        List<Integer> roads = game.getValidRoadPlacements(current, false);
+        List<Integer> settlements = game.getValidSettlementPlacements(current, false);
+
+        System.out.println("\n--- Valid Moves Summary (" + current.getName() + ") ---");
+        System.out.println("Valid roads: " + roads.size());
+        System.out.println("Valid settlements: " + settlements.size());
+        System.out.println("Resources: " + current.getInventory());
+    }
+
+    // =========================
+    // ROBBER (7)
+    // =========================
 
     private void handleRobberOnSeven(Player current) {
         System.out.println("\n⚠ Rolled a 7! Robber activated.");
 
         // 1) Discard
-        for (Player p : game.getPlayers()) {
+        for (int i = 0; i < game.getPlayers().size(); i++) {
+            Player p = game.getPlayers().get(i);
             if (!game.mustDiscardOnSeven(p)) continue;
 
             int mustDiscard = game.getDiscardCountOnSeven(p);
@@ -220,24 +344,25 @@ public class ConsoleGameController {
                     + " cards and must discard " + mustDiscard + ".");
 
             Map<Resource, Integer> discard = promptDiscardMap(p, mustDiscard);
-            try {
-                game.discardResourcesToBank(p, discard);
-                System.out.println("✅ " + p.getName() + " discarded " + mustDiscard + ". Remaining: " + p.getInventory());
-            } catch (IllegalArgumentException ex) {
-                System.out.println("❌ Discard failed: " + ex.getMessage());
-                discard = promptDiscardMap(p, mustDiscard);
-                game.discardResourcesToBank(p, discard);
-                System.out.println("✅ " + p.getName() + " discarded " + mustDiscard + ". Remaining: " + p.getInventory());
+            while (true) {
+                try {
+                    game.discardResourcesToBank(p, discard);
+                    System.out.println("✅ " + p.getName() + " discarded " + mustDiscard + ". Remaining: " + p.getInventory());
+                    break;
+                } catch (IllegalArgumentException ex) {
+                    System.out.println("❌ Discard failed: " + ex.getMessage());
+                    discard = promptDiscardMap(p, mustDiscard);
+                }
             }
         }
 
-        // 2) Move robber
+        // 2) Move robber (only valid hex destinations)
         moveRobberFlow();
 
-        // 3) Steal
+        // 3) Steal (only from robbable players)
         List<Player> victims = game.getRobbablePlayers(current);
         if (victims.isEmpty()) {
-            System.out.println("No players adjacent to the robber to steal from.");
+            System.out.println("No players adjacent to the robber to steal from (or they have no cards).");
             return;
         }
 
@@ -259,11 +384,41 @@ public class ConsoleGameController {
         }
     }
 
+    private void moveRobberFlow() {
+        List<Integer> valid = game.getValidRobberHexDestinations();
+        if (valid.isEmpty()) {
+            System.out.println("No valid robber destinations.");
+            return;
+        }
+
+        System.out.println("\nValid robber destinations (hex index -> resource(token)):");
+        for (int k = 0; k < valid.size(); k++) {
+            int hexIdx = valid.get(k);
+            catan.board.Hex h = game.getBoard().getHexes().get(hexIdx);
+            System.out.println(k + ") #" + hexIdx + " " + h.getResource() + " (" + h.getNumberToken() + ")");
+        }
+
+        int pick = promptInt("Choose option (0-" + (valid.size() - 1) + "): ", 0, valid.size() - 1);
+        int chosenHexIndex = valid.get(pick);
+
+        while (true) {
+            try {
+                game.moveRobberToHex(chosenHexIndex);
+                System.out.println("✅ Robber moved to hex #" + chosenHexIndex + ".");
+                break;
+            } catch (IllegalArgumentException ex) {
+                System.out.println("❌ " + ex.getMessage());
+                pick = promptInt("Choose option (0-" + (valid.size() - 1) + "): ", 0, valid.size() - 1);
+                chosenHexIndex = valid.get(pick);
+            }
+        }
+    }
+
     private Map<Resource, Integer> promptDiscardMap(Player player, int mustDiscard) {
         System.out.println("Current resources: " + player.getInventory());
         System.out.println("Enter how many of each to discard. Must total " + mustDiscard + ".");
 
-        Map<Resource, Integer> discard = new EnumMap<>(Resource.class);
+        Map<Resource, Integer> discard = new EnumMap<Resource, Integer>(Resource.class);
         int remaining = mustDiscard;
 
         for (Resource r : Resource.values()) {
@@ -274,6 +429,7 @@ public class ConsoleGameController {
 
             int max = Math.min(have, remaining);
             int amt = promptInt("Discard " + r + " (0-" + max + "): ", 0, max);
+
             if (amt > 0) {
                 discard.put(r, amt);
                 remaining -= amt;
@@ -282,36 +438,15 @@ public class ConsoleGameController {
         }
 
         if (remaining != 0) {
-            System.out.println("⚠ Discard total not met (remaining " + remaining + ").");
+            System.out.println("⚠ Discard total not met (remaining " + remaining + "). You'll be prompted again if invalid.");
         }
+
         return discard;
     }
 
-    private void moveRobberFlow() {
-        System.out.println("\nMove the robber to a hex.");
-
-        int currentIdx = game.getRobberHexIndex();
-        List<catan.board.Hex> hexes = game.getBoard().getHexes();
-
-        for (int i = 0; i < hexes.size(); i++) {
-            catan.board.Hex h = hexes.get(i);
-            String mark = (i == currentIdx) ? "  <robber>" : "";
-            System.out.println(i + ") " + h.getResource() + " (" + h.getNumberToken() + ")" + mark);
-        }
-
-        int idx = promptInt("Hex index (0-" + (hexes.size() - 1) + "): ", 0, hexes.size() - 1);
-        try {
-            game.moveRobberToHex(idx);
-            System.out.println("✅ Robber moved to hex " + idx + ".");
-        } catch (IllegalArgumentException ex) {
-            System.out.println("❌ " + ex.getMessage());
-            idx = promptInt("Choose a different hex index: ", 0, hexes.size() - 1);
-            game.moveRobberToHex(idx);
-            System.out.println("✅ Robber moved to hex " + idx + ".");
-        }
-    }
-
-    // -------------------- VIEW HELPERS --------------------
+    // =========================
+    // VIEW HELPERS
+    // =========================
 
     private void viewMyInfo(Player p) {
         System.out.println("\n--- My Info ---");
@@ -321,11 +456,13 @@ public class ConsoleGameController {
         System.out.println("Cities: " + p.getCities().size());
         System.out.println("Roads: " + p.getRoads().size());
         System.out.println("Resources: " + p.getInventory());
+        System.out.println("Cards total: " + p.getInventory().getTotalResourceCards());
     }
 
     private void viewAllPlayers() {
         System.out.println("\n--- Players ---");
-        for (Player p : game.getPlayers()) {
+        for (int i = 0; i < game.getPlayers().size(); i++) {
+            Player p = game.getPlayers().get(i);
             System.out.println(p.getName()
                     + " | VP: " + p.getVictoryPoints()
                     + " | S:" + p.getSettlements().size()
@@ -335,7 +472,7 @@ public class ConsoleGameController {
         }
     }
 
-    private void listIntersections() {
+    private void listIntersectionsWithOccupancy() {
         List<Intersection> ints = game.getBoard().getIntersections();
         System.out.println("\n--- Intersections ---");
         for (int i = 0; i < ints.size(); i++) {
@@ -345,7 +482,7 @@ public class ConsoleGameController {
         }
     }
 
-    private void listEdges() {
+    private void listEdgesWithOccupancy() {
         List<Edge> edges = game.getBoard().getEdges();
         System.out.println("\n--- Edges ---");
         for (int i = 0; i < edges.size(); i++) {
@@ -360,10 +497,12 @@ public class ConsoleGameController {
         System.out.println("Hexes: " + game.getBoard().getHexes().size());
         System.out.println("Intersections: " + game.getBoard().getIntersections().size());
         System.out.println("Edges: " + game.getBoard().getEdges().size());
-        System.out.println("Robber on hex index: " + game.getRobberHexIndex());
+        System.out.println("Robber hex index: " + game.getRobberHexIndex());
     }
 
-    // -------------------- INPUT + FORMAT --------------------
+    // =========================
+    // INPUT + FORMAT
+    // =========================
 
     private int promptInt(String prompt, int min, int max) {
         while (true) {

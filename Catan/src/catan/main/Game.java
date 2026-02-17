@@ -336,6 +336,41 @@ public class Game {
         player.addSettlement(s);
         return s;
     }
+    
+    public List<Integer> getValidSettlementPlacements(Player player, boolean isSetup) {
+        List<Integer> valid = new ArrayList<>();
+        List<Intersection> ints = board.getIntersections();
+        for (int i = 0; i < ints.size(); i++) {
+            if (Validator.isValidSettlementPlacement(board, player, ints.get(i), isSetup)) {
+                valid.add(i);
+            }
+        }
+        return valid;
+    }
+    
+    public List<Integer> getValidRoadPlacements(Player player, boolean isSetup) {
+        List<Integer> valid = new ArrayList<>();
+        List<Edge> es = board.getEdges();
+        for (int i = 0; i < es.size(); i++) {
+            Edge e = es.get(i);
+            boolean ok = isSetup
+                    ? Validator.isValidSetupRoadPlacement(board, player, e, pendingSetupRoadAnchor)
+                    : Validator.isValidRoadPlacement(board, player, e);
+            if (ok) valid.add(i);
+        }
+        return valid;
+    }
+    
+    public List<Integer> getValidRobberHexDestinations() {
+        List<Integer> valid = new ArrayList<>();
+        int current = getRobberHexIndex();
+        for (int i = 0; i < board.getHexes().size(); i++) {
+            if (i != current) valid.add(i);
+        }
+        return valid;
+    }
+
+
 
     private Road placeRoadInternal(Player player, int edgeIndex, boolean isSetup) {
         if (player == null) throw new IllegalArgumentException("Player cannot be null.");
